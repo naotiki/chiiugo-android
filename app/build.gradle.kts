@@ -62,6 +62,8 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
 
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)

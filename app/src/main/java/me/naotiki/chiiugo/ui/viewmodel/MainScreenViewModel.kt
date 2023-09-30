@@ -21,7 +21,7 @@ class MainScreenViewModel @Inject constructor(
         return repository.getInstalledAppInfoList().chunked(ROW_COUNT)
     }
 
-    fun launchApp(context: Context, appInfo: AppInfo, offset: IntOffset?=null, view: View?=null) {
+    fun launchApp(context: Context, appInfo: AppInfo, offset: IntOffset? = null, view: View? = null) {
         val intent = Intent(Intent.ACTION_MAIN).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED

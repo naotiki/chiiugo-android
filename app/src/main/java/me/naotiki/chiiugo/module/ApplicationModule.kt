@@ -13,5 +13,5 @@ import javax.inject.Singleton
 abstract class ApplicationModule {
     @Binds
     @Singleton
-    abstract fun bindToDoRepository(impl: InstalledAppRepositoryImpl): InstalledAppRepository
+    abstract fun bindInstalledAppRepository(impl: InstalledAppRepositoryImpl): InstalledAppRepository
 }

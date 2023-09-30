@@ -17,6 +17,9 @@ private const val ROW_COUNT = 6
 class MainScreenViewModel @Inject constructor(
     private val repository: InstalledAppRepository
 ) : ViewModel() {
+    fun appPickup(app:AppInfo){
+
+    }
     fun getAppInfoList(): List<List<AppInfo>> {
         return repository.getInstalledAppInfoList().chunked(ROW_COUNT)
     }

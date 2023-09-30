@@ -1,5 +1,8 @@
 package me.naotiki.chiiugo.ui.screen
+
+import android.content.ComponentName
 import android.content.Intent
+import android.os.Parcel
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.VectorConverter
@@ -27,6 +30,7 @@ import me.naotiki.chiiugo.ui.component.AppIcon
 import me.naotiki.chiiugo.ui.component.GifImage
 import me.naotiki.chiiugo.ui.component.SystemBroadcastReceiver
 import me.naotiki.chiiugo.ui.viewmodel.MainScreenViewModel
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 
@@ -55,27 +59,42 @@ fun MainScreen(
     val screenHeight = LocalConfiguration.current.screenHeightDp
     val offset = remember { Animatable(Offset(0f, 0f), Offset.VectorConverter) }
     val currentOffset by offset.asState()
-    LaunchedEffect(Unit){
+    LaunchedEffect(Unit) {
         launch {
-            while (true){
-                offset.animateTo(Offset(Random.nextFloat()*screenWidth,Random.nextFloat()*screenHeight),
+            while (true) {
+                val target = Offset(Random.nextFloat() * screenWidth, Random.nextFloat() * screenHeight)
+                offset.animateTo(
+                    target,
                     tween(
-                        5000, easing = EaseInOut
-                    ))
+                        (5 * (offset.value - target).getDistance()).roundToInt(), easing = EaseInOut
+                    )
+                )
             }
         }
     }
+    var draggingAppIconInfo by remember { mutableStateOf<AppInfo?>(null) }
     Scaffold(containerColor = Color.Transparent) {
         Box(Modifier.padding(it).fillMaxSize()) {
-            GifImage(R.drawable.boom,Modifier.zIndex(1f).absoluteOffset(currentOffset.x.dp,currentOffset.y.dp))
+            if (draggingAppIconInfo!=null){
+
+            }
+            GifImage(R.drawable.boom, Modifier.zIndex(1f).absoluteOffset(currentOffset.x.dp, currentOffset.y.dp))
             Column(Modifier.fillMaxSize().padding(it).verticalScroll(rememberScrollState())) {
-                apps.forEach {
+                apps.map { it.filter { it!=draggingAppIconInfo } }.forEach {
                     Row {
                         it.forEach { appInfo ->
                             val view = LocalView.current
-                            AppIcon(appInfo.label, rememberDrawablePainter( appInfo.icon), onClick = {
-                                viewModel.launchApp(context, appInfo, it?.round(), view)
-                            })
+                            AppIcon(
+                                appInfo.label,
+                                rememberDrawablePainter(appInfo.icon),
+                                onClick = {
+                                    viewModel.launchApp(context, appInfo, it?.round(), view)
+                                },
+                                onDragStart = {
+                                    draggingAppIconInfo=appInfo
+                                },
+                                modifier = Modifier
+                            )
                         }
                     }
                 }

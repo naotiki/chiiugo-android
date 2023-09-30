@@ -12,15 +12,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.zIndex
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import kotlinx.coroutines.launch
 import me.naotiki.chiiugo.R
 import me.naotiki.chiiugo.data.AppInfo
@@ -68,13 +67,13 @@ fun MainScreen(
     }
     Scaffold(containerColor = Color.Transparent) {
         Box(Modifier.padding(it).fillMaxSize()) {
-            //GifImage(R.drawable.boom,Modifier.zIndex(1f).absoluteOffset(currentOffset.x.dp,currentOffset.y.dp))
+            GifImage(R.drawable.boom,Modifier.zIndex(1f).absoluteOffset(currentOffset.x.dp,currentOffset.y.dp))
             Column(Modifier.fillMaxSize().padding(it).verticalScroll(rememberScrollState())) {
                 apps.forEach {
                     Row {
                         it.forEach { appInfo ->
                             val view = LocalView.current
-                            AppIcon(appInfo.label, appInfo.icon.toBitmap().asImageBitmap(), onClick = {
+                            AppIcon(appInfo.label, rememberDrawablePainter( appInfo.icon), onClick = {
                                 viewModel.launchApp(context, appInfo, it?.round(), view)
                             })
                         }

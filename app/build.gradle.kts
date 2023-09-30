@@ -64,6 +64,7 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
+    implementation(libs.accompanist.drawablepainter)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)

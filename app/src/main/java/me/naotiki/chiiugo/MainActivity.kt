@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.view.WindowCompat
 import dagger.hilt.android.AndroidEntryPoint
 import me.naotiki.chiiugo.ui.screen.MainScreen
+import me.naotiki.chiiugo.ui.screen.TestScreen
 import me.naotiki.chiiugo.ui.theme.ChiiugoTheme
 
 @AndroidEntryPoint
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ChiiugoTheme(false) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
-                    MainScreen()
+                    TestScreen()
                 }
             }
         }

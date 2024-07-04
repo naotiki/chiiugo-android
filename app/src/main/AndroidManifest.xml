@@ -5,13 +5,14 @@
             android:name="android.permission.QUERY_ALL_PACKAGES"
             tools:ignore="QueryAllPackagesPermission"
     />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application
             android:allowBackup="true"
             android:dataExtractionRules="@xml/data_extraction_rules"
             android:fullBackupContent="@xml/backup_rules"
-            android:icon="@drawable/chiiugo_icon"
+            android:icon="@mipmap/ic_launcher"
             android:label="@string/app_name"
-            android:roundIcon="@drawable/chiiugo_icon"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:supportsRtl="true"
             android:theme="@style/Theme.Chiiugo"
             android:name=".ChiiugoApplication"

@@ -3,6 +3,7 @@ package me.naotiki.chiiugo.ui.screen
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Parcel
+import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.VectorConverter

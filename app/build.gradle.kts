@@ -1,4 +1,5 @@
-@Suppress("DSL_SCOPE_VIOLATION") // TODO: Remove once KTIJ-19369 is fixed
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     kotlin("kapt")
     alias(libs.plugins.com.android.application)
@@ -9,12 +10,12 @@ plugins {
 
 android {
     namespace = "me.naotiki.chiiugo"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "me.naotiki.chiiugo"
         minSdk = 28
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -34,14 +35,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin{
+        compilerOptions {
+            jvmTarget = JvmTarget.fromTarget("17")
+        }
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.3"
     }
     packaging {
         resources {

@@ -1,105 +1,61 @@
 package me.naotiki.chiiugo.ui.screen
 
-import android.content.ComponentName
-import android.content.Intent
-import android.os.Parcel
-import android.view.WindowManager
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Switch
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.round
-import androidx.compose.ui.zIndex
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
-import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import me.naotiki.chiiugo.R
-import me.naotiki.chiiugo.data.AppInfo
-import me.naotiki.chiiugo.ui.component.AppIcon
+import me.naotiki.chiiugo.service.MascotOverlayService
 import me.naotiki.chiiugo.ui.component.GifImage
-import me.naotiki.chiiugo.ui.component.SystemBroadcastReceiver
-import me.naotiki.chiiugo.ui.viewmodel.MainScreenViewModel
-import kotlin.math.roundToInt
-import kotlin.random.Random
-
 
 @Composable
-fun MainScreen(
-    viewModel: MainScreenViewModel = viewModel()
-) {
+fun MainScreen() {
+    var isMascotEnabled by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
-    var apps by remember { mutableStateOf(listOf<List<AppInfo>>()) }
-
-    LaunchedEffect(Unit) {
-        apps = viewModel.getAppInfoList()
+    MascotOverlayService.enable.observe(LocalLifecycleOwner.current) { value ->
+        isMascotEnabled = value
     }
-    SystemBroadcastReceiver(
-        Intent.ACTION_PACKAGE_ADDED,
-        Intent.ACTION_PACKAGE_REMOVED,
-        Intent.ACTION_PACKAGE_CHANGED,
-        Intent.ACTION_PACKAGE_REPLACED,
-        additionalIntentFilter = {
-            addDataScheme("package")
-        }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        //TODO アプリリストの再構成
-    }
-    val screenWidth = LocalConfiguration.current.screenWidthDp
-    val screenHeight = LocalConfiguration.current.screenHeightDp
-    val offset = remember { Animatable(Offset(0f, 0f), Offset.VectorConverter) }
-    val currentOffset by offset.asState()
-    LaunchedEffect(Unit) {
-        launch {
-            while (true) {
-                val target = Offset(Random.nextFloat() * screenWidth, Random.nextFloat() * screenHeight)
-                offset.animateTo(
-                    target,
-                    tween(
-                        (5 * (offset.value - target).getDistance()).roundToInt(), easing = EaseInOut
+        Switch(
+            checked = isMascotEnabled,
+            onCheckedChange = {
+                isMascotEnabled = it
+                if (it) {
+                    context.startService(
+                        MascotOverlayService.createStartOverlayIntent(context.applicationContext)
                     )
-                )
-            }
-        }
-    }
-    var draggingAppIconInfo by remember { mutableStateOf<AppInfo?>(null) }
-    Scaffold(containerColor = Color.Transparent) {
-        Box(Modifier.padding(it).fillMaxSize()) {
-            if (draggingAppIconInfo!=null){
-
-            }
-            GifImage(R.drawable.boom, Modifier.zIndex(1f).absoluteOffset(currentOffset.x.dp, currentOffset.y.dp))
-            Column(Modifier.fillMaxSize().padding(it).verticalScroll(rememberScrollState())) {
-                apps.map { it.filter { it!=draggingAppIconInfo } }.forEach {
-                    Row {
-                        it.forEach { appInfo ->
-                            val view = LocalView.current
-                            AppIcon(
-                                appInfo.label,
-                                rememberDrawablePainter(appInfo.icon),
-                                onClick = {
-                                    viewModel.launchApp(context, appInfo, it?.round(), view)
-                                },
-                                onDragStart = {
-                                    draggingAppIconInfo=appInfo
-                                },
-                                modifier = Modifier
-                            )
-                        }
-                    }
+                } else {
+                    context.startService(
+                        MascotOverlayService.createStopOverlayIntent(context.applicationContext)
+                    )
                 }
-            }
-        }
+            },
+            thumbContent = if (isMascotEnabled) {
+                {
+                    GifImage(
+                        R.drawable.boom, contentDescription = null,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            } else null,
+            modifier = Modifier.scale(2f)
+        )
     }
 }
+

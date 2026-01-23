@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.ImageLoader
@@ -16,7 +17,12 @@ import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 
 @Composable
-fun GifImage(@DrawableRes id: Int,modifier: Modifier=Modifier,contentDescription:String?=null) {
+fun GifImage(
+    @DrawableRes id: Int,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    colorFilter: ColorFilter? = null
+) {
     val imageRequest = ImageRequest.Builder(LocalContext.current)
         .data(id)
         .build()
@@ -29,6 +35,7 @@ fun GifImage(@DrawableRes id: Int,modifier: Modifier=Modifier,contentDescription
             .components {
                 add(ImageDecoderDecoder.Factory())
             }
-            .build()
+            .build(),
+        colorFilter = colorFilter
     )
 }

@@ -31,7 +31,7 @@ private val forceClose = arrayOf(Key.R, Key.E, Key.I, Key.S, Key.U, Key.B)
 fun Mascot(
     mascotState: MascotState,
     modifier: Modifier = Modifier,
-    configData: ConfigManager.conf = ConfigManager.conf
+    configData: Config = ConfigManager.conf
 ) {
     LaunchedEffect(Unit) {
         launch {

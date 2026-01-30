@@ -17,16 +17,32 @@ import kotlin.random.Random
 
 
 //Mock
-object ConfigManager{
-   object conf {
-        val imageSize = 175f
-        var areaOffset: Pair<Float, Float> = 0f to 0f
-       var areaSize: Pair<Float, Float> = 1f to 1f
-    }
+object ConfigManager {
+    val conf = Config()
 }
 
+data class Config(
+    val imageSize: Float = 175f,
+    var areaOffset: Pair<Float, Float> = 0f to 0f,
+    var areaSize: Pair<Float, Float> = 1f to 1f,
+    var moveSpeedMs:Int = DEFAULT_WALK_SPEED,
+    var transparency:Float = 0.8f,
+    var blockingTouch : Boolean = false
+)
+
+
+
 val colorList =
-    listOf(0xFFFFFF00, 0xFF00FF00, 0xFFFF0000, 0xFF0000FF, 0xFF7DEBEB, 0xFFFF9B00, 0xFF800080, 0xFFFF1493)
+    listOf(
+        0xFFFFFF00,
+        0xFF00FF00,
+        0xFFFF0000,
+        0xFF0000FF,
+        0xFF7DEBEB,
+        0xFFFF9B00,
+        0xFF800080,
+        0xFFFF1493
+    )
 
 enum class Behaviours(val behaviourFunc: BehaviourFunc) {
     FallDown({
@@ -45,7 +61,7 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
                     color.animateTo(random, tween(160, easing = EaseInBack))
                 }
             }
-            randomWalk()
+            randomWalk(ConfigManager.conf.moveSpeedMs)
             aho.cancel()
             color.snapTo(Color.White)
         }
@@ -57,22 +73,25 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
 }
 
 val defaultBehaviour: BehaviourFunc = {
-    randomWalk()
+    randomWalk(ConfigManager.conf.moveSpeedMs)
     delay(Random.nextLong(0, 2000))
     say(texts.random(), 5000)
     when ((0 until 30).random()) {
         0 -> {
             changeBehaviour(Behaviours.FallDown)
         }
+
         in 1..7 -> {
             changeBehaviour(Behaviours.Gaming)
         }
+
         in 8..15 -> {
             changeBehaviour(Behaviours.Flying)
         }
     }
 }
 typealias BehaviourFunc = suspend MascotState.() -> Unit
+
 private const val DEFAULT_WALK_SPEED = 2500
 
 class MascotState(private val screenSize: AreaSize) {
@@ -131,27 +150,27 @@ class MascotState(private val screenSize: AreaSize) {
         lockMovement = false
     }
 
-    fun changeBehaviour(behaviours: Behaviours)=changeBehaviour(behaviours.behaviourFunc)
+    fun changeBehaviour(behaviours: Behaviours) = changeBehaviour(behaviours.behaviourFunc)
     fun changeBehaviour(behaviourFunc: BehaviourFunc?) {
         this.behaviourFunc = behaviourFunc
         behaviourJob?.cancel()
     }
 
     private fun randomAreaPos(): AreaPosition {
-       /* val x =
-            screenSize.widthDp.value * /*15f*/  ConfigManager.conf.areaOffset.first + (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first)
-        val y =
-            screenSize.heightDp.value * /*15f **/ ConfigManager.conf.areaOffset.second + (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second)
-        */
+        /* val x =
+             screenSize.widthDp.value * /*15f*/  ConfigManager.conf.areaOffset.first + (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first)
+         val y =
+             screenSize.heightDp.value * /*15f **/ ConfigManager.conf.areaOffset.second + (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second)
+         */
         val x =
-            (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first) - screenSize.widthDp.value/2
+            (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first) - screenSize.widthDp.value / 2
         val y =
-            (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second) - screenSize.heightDp.value/2
+            (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second) - screenSize.heightDp.value / 2
         return AreaPosition(x.dp, y.dp)
 
     }
 
-    suspend fun randomWalk(millis: Int = DEFAULT_WALK_SPEED) = walk(randomAreaPos(), millis)
+    suspend fun randomWalk(millis: Int ) = walk(randomAreaPos(), millis)
 
     @get:DrawableRes
     var gifRes by mutableIntStateOf(R.drawable.suc)
@@ -204,7 +223,10 @@ class MascotState(private val screenSize: AreaSize) {
         charMap.add(e)
         coroutineScope {
             launch {
-                anim.animateTo(ConfigManager.conf.imageSize - 10, tween(2000, easing = EaseOutBounce))
+                anim.animateTo(
+                    ConfigManager.conf.imageSize - 10,
+                    tween(2000, easing = EaseOutBounce)
+                )
                 delay(Random.nextLong(500, 2000))
                 charMap.remove(e)
             }

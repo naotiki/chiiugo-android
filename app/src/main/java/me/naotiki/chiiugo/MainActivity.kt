@@ -23,6 +23,7 @@ import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
 import me.naotiki.chiiugo.ui.screen.MainScreen
+import me.naotiki.chiiugo.ui.screen.SettingsScreen
 import me.naotiki.chiiugo.ui.theme.ChiiugoTheme
 
 @Serializable
@@ -102,7 +103,7 @@ fun App() {
                     MainScreen()
                 }
                 entry<Screen.SettingScreen> {
-
+                    SettingsScreen()
                 }
 
             },

@@ -1,13 +1,13 @@
 package me.naotiki.chiiugo.service
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -19,13 +19,19 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import me.naotiki.chiiugo.R
+import dagger.hilt.android.AndroidEntryPoint
 import me.naotiki.chiiugo.model.rememberAreaSize
-import me.naotiki.chiiugo.ui.component.GifImage
+import me.naotiki.chiiugo.ui.component.ConfigManager
 import me.naotiki.chiiugo.ui.component.Mascot
 import me.naotiki.chiiugo.ui.component.rememberMascotState
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
+
+    @Inject
+    lateinit var configManager: ConfigManager
+
     companion object {
         private const val START_OVERLAY = "START_OVERLAY"
         private const val STOP_OVERLAY = "STOP_OVERLAY"
@@ -53,13 +59,14 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
         get() =
             savedStateRegistryController.savedStateRegistry
 
-    private val composeView by lazy {
-        ComposeView(applicationContext).apply {
+    private fun createComposeView(): ComposeView {
+        return ComposeView(applicationContext).apply {
             setViewTreeSavedStateRegistryOwner(this@MascotOverlayService)
             setContent {
                 val density =
                     LocalDensity.current.density
 
+                val config by configManager.configFlow.collectAsState()
 
                 //GifImage(R.drawable.boom)
                 val areaSize = rememberAreaSize(with(LocalDensity.current) {
@@ -67,19 +74,20 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
                         screenWidthDp.toDp() to screenHeightDp.toDp()
                     }
                 })
-                val mascotState = rememberMascotState(areaSize)
+                val mascotState = rememberMascotState(areaSize) { configManager.conf }
 
-                LaunchedEffect(mascotState.areaPosState) {
+                LaunchedEffect(mascotState.areaPosState, config.transparency) {
                     val posPx = mascotState.areaPosState.toPx(density)
                     windowManager.updateViewLayout(
                         this@apply, overlayParams.copy {
                             x = posPx.first
                             y = posPx.second
+                            alpha = config.transparency
                         }
                     )
                 }
 
-                Mascot(mascotState)
+                Mascot(mascotState, configData = config)
             }
         }
     }
@@ -102,22 +110,24 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
 
     }
 
-    private var currentView: View? = null
+    private var composeView: ComposeView? = null
     private val windowManager: WindowManager by lazy {
         getSystemService(WINDOW_SERVICE) as WindowManager
     }
 
     private fun handleStartOverlay() {
-        composeView.setViewTreeLifecycleOwner(this)
+
         setEnable(true)
-        changeRootView(composeView)
+        changeRootView(createComposeView().apply {
+            setViewTreeLifecycleOwner(this@MascotOverlayService)
+        })
     }
 
     private fun handleStopOverlay() {
         setEnable(false)
-        if (currentView == null) return
-        windowManager.removeView(currentView)
-        currentView = null
+        if (composeView == null) return
+        windowManager.removeView(composeView)
+        composeView = null
     }
 
     private val overlayParams = WindowManager.LayoutParams(
@@ -130,11 +140,12 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
         alpha = 0.8f
     }
 
-    private fun changeRootView(view: View) {
-        currentView?.run { windowManager.removeView(this) }
+    private fun changeRootView(view: ComposeView) {
+        composeView?.let { windowManager.removeView(it) }
 
         windowManager.addView(view, overlayParams)
-        currentView = view
+
+        composeView = view
     }
 }
 

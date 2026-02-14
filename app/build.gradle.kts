@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.hilt.android)
     implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.hilt.navigation.compose)
     kapt(libs.hilt.compiler)
     kapt(libs.kotlin.metadata.jvm)
 

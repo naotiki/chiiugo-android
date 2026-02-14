@@ -8,26 +8,42 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.naotiki.chiiugo.R
+import me.naotiki.chiiugo.data.repository.ConfigRepository
 import me.naotiki.chiiugo.model.AreaPosition
 import me.naotiki.chiiugo.model.AreaSize
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
+@Singleton
+class ConfigManager @Inject constructor(
+    configRepository: ConfigRepository
+) {
+    private val _configFlow = MutableStateFlow(Config())
+    val configFlow: StateFlow<Config> = _configFlow.asStateFlow()
 
-//Mock
-object ConfigManager {
-    val conf = Config()
+    val conf: Config get() = _configFlow.value
+
+    init {
+        CoroutineScope(Dispatchers.Default).launch {
+            configRepository.configFlow.collect { config ->
+                _configFlow.value = config
+            }
+        }
+    }
 }
 
 data class Config(
     val imageSize: Float = 175f,
-    var areaOffset: Pair<Float, Float> = 0f to 0f,
-    var areaSize: Pair<Float, Float> = 1f to 1f,
-    var moveSpeedMs:Int = DEFAULT_WALK_SPEED,
-    var transparency:Float = 0.8f,
-    var blockingTouch : Boolean = false
+    val areaOffset: Pair<Float, Float> = 0f to 0f,
+    val areaSize: Pair<Float, Float> = 1f to 1f,
+    val moveSpeedMs: Int = DEFAULT_WALK_SPEED,
+    val transparency: Float = 0.8f,
+    val blockingTouch: Boolean = false
 )
 
 
@@ -53,7 +69,6 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
         coroutineScope {
             val aho = launch {
                 while (true) {
-                    ConfigManager.conf
                     var random: Color
                     do {
                         random = Color(colorList.random())
@@ -61,7 +76,7 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
                     color.animateTo(random, tween(160, easing = EaseInBack))
                 }
             }
-            randomWalk(ConfigManager.conf.moveSpeedMs)
+            randomWalk(configProvider().moveSpeedMs)
             aho.cancel()
             color.snapTo(Color.White)
         }
@@ -73,7 +88,7 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
 }
 
 val defaultBehaviour: BehaviourFunc = {
-    randomWalk(ConfigManager.conf.moveSpeedMs)
+    randomWalk(configProvider().moveSpeedMs)
     delay(Random.nextLong(0, 2000))
     say(texts.random(), 5000)
     when ((0 until 30).random()) {
@@ -94,7 +109,10 @@ typealias BehaviourFunc = suspend MascotState.() -> Unit
 
 private const val DEFAULT_WALK_SPEED = 2500
 
-class MascotState(private val screenSize: AreaSize) {
+class MascotState(
+    private val screenSize: AreaSize,
+    val configProvider: () -> Config = { Config() }
+) {
     private var behaviourFunc: BehaviourFunc? = null
     private var behaviourJob: Job? = null
 
@@ -157,15 +175,16 @@ class MascotState(private val screenSize: AreaSize) {
     }
 
     private fun randomAreaPos(): AreaPosition {
+        val config = configProvider()
         /* val x =
-             screenSize.widthDp.value * /*15f*/  ConfigManager.conf.areaOffset.first + (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first)
+             screenSize.widthDp.value * /*15f*/  config.areaOffset.first + (Random.nextFloat() * screenSize.widthDp.value * config.areaSize.first)
          val y =
-             screenSize.heightDp.value * /*15f **/ ConfigManager.conf.areaOffset.second + (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second)
+             screenSize.heightDp.value * /*15f **/ config.areaOffset.second + (Random.nextFloat() * screenSize.heightDp.value * config.areaSize.second)
          */
         val x =
-            (Random.nextFloat() * screenSize.widthDp.value * ConfigManager.conf.areaSize.first) - screenSize.widthDp.value / 2
+            (Random.nextFloat() * screenSize.widthDp.value * config.areaSize.first) - screenSize.widthDp.value / 2
         val y =
-            (Random.nextFloat() * screenSize.heightDp.value * ConfigManager.conf.areaSize.second) - screenSize.heightDp.value / 2
+            (Random.nextFloat() * screenSize.heightDp.value * config.areaSize.second) - screenSize.heightDp.value / 2
         return AreaPosition(x.dp, y.dp)
 
     }
@@ -217,14 +236,15 @@ class MascotState(private val screenSize: AreaSize) {
     val charMap = mutableStateListOf<Pair<Char, Pair<Int, Animatable<Float, AnimationVector1D>>>>()
 
     suspend fun feed(char: Char) {
+        val config = configProvider()
         if (!char.isLetterOrDigit() || charMap.size > 1000) return
         val anim = Animatable(0f)
-        val e = char to (Random.nextInt(ConfigManager.conf.imageSize.roundToInt()) to anim)
+        val e = char to (Random.nextInt(config.imageSize.roundToInt()) to anim)
         charMap.add(e)
         coroutineScope {
             launch {
                 anim.animateTo(
-                    ConfigManager.conf.imageSize - 10,
+                    config.imageSize - 10,
                     tween(2000, easing = EaseOutBounce)
                 )
                 delay(Random.nextLong(500, 2000))
@@ -235,8 +255,11 @@ class MascotState(private val screenSize: AreaSize) {
 }
 
 @Composable
-fun rememberMascotState(screenSize: AreaSize): MascotState {
-    return remember(screenSize) { MascotState(screenSize) }
+fun rememberMascotState(
+    screenSize: AreaSize,
+    configProvider: () -> Config = { Config() }
+): MascotState {
+    return remember(screenSize) { MascotState(screenSize, configProvider) }
 }
 
 val texts = arrayOf(

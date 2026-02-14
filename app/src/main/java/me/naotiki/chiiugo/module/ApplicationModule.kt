@@ -4,7 +4,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import me.naotiki.chiiugo.data.repository.ConfigRepository
 import me.naotiki.chiiugo.data.repository.InstalledAppRepository
+import me.naotiki.chiiugo.data.repository.impl.ConfigRepositoryImpl
 import me.naotiki.chiiugo.data.repository.impl.InstalledAppRepositoryImpl
 import javax.inject.Singleton
 
@@ -14,4 +16,8 @@ abstract class ApplicationModule {
     @Binds
     @Singleton
     abstract fun bindInstalledAppRepository(impl: InstalledAppRepositoryImpl): InstalledAppRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindConfigRepository(impl: ConfigRepositoryImpl): ConfigRepository
 }

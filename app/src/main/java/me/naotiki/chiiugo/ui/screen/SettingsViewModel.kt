@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.naotiki.chiiugo.data.llm.LmStudioApiClient
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepository
+import me.naotiki.chiiugo.data.llm.ScreenAnalysisMode
 import me.naotiki.chiiugo.data.repository.ConfigRepository
 import me.naotiki.chiiugo.ui.component.Config
 import javax.inject.Inject
@@ -127,6 +128,24 @@ class SettingsViewModel @Inject constructor(
     fun updatePersonaStyle(personaStyle: String) {
         viewModelScope.launch {
             llmSettingsRepository.updatePersonaStyle(personaStyle)
+        }
+    }
+
+    fun updateScreenAnalysisEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateScreenAnalysisEnabled(enabled)
+        }
+    }
+
+    fun updateAnalysisMode(mode: ScreenAnalysisMode) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateAnalysisMode(mode)
+        }
+    }
+
+    fun updateScreenCaptureIntervalSec(intervalSec: Int) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateScreenCaptureIntervalSec(intervalSec)
         }
     }
 

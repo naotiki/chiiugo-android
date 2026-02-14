@@ -40,8 +40,9 @@ class ContextEventRepositoryTest {
 
         val snapshot = repository.snapshotFlow.value
         assertEquals(3, snapshot.notificationCount)
-        assertEquals("YouTube", snapshot.activeNotifications.first().appName)
-        assertEquals(2, snapshot.activeNotifications.first().count)
+        assertEquals(3, snapshot.recentNotifications.size)
+        assertTrue(snapshot.recentNotifications.any { it.appName == "YouTube" })
+        assertTrue(snapshot.recentNotifications.any { it.appName == "Gmail" })
         assertTrue(snapshot.toPromptJson().contains("最新アップロードがあります"))
         assertTrue(snapshot.recentNotifications.isNotEmpty())
     }

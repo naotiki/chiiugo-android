@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,6 +45,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.naotiki.chiiugo.data.llm.LlmSettings
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_CONFIGURABLE_TOKENS
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_CONFIGURABLE_TOKENS
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_SCREEN_CAPTURE_INTERVAL_SEC
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_SCREEN_CAPTURE_INTERVAL_SEC
+import me.naotiki.chiiugo.data.llm.ScreenAnalysisMode
 import kotlin.math.roundToInt
 
 @Composable
@@ -159,6 +163,69 @@ fun SettingsScreen(
                     checked = llmSettings.enabled,
                     onCheckedChange = { viewModel.updateLlmEnabled(it) }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "画面解析",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = llmSettings.screenAnalysisEnabled,
+                    onCheckedChange = { viewModel.updateScreenAnalysisEnabled(it) },
+                    enabled = llmSettings.enabled
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "画面収録許可はマスコットON時に毎回表示されます",
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            if (llmSettings.screenAnalysisEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "解析モード",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                ScreenAnalysisModeItem(
+                    title = "Multimodal only",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.MULTIMODAL_ONLY) }
+                )
+                ScreenAnalysisModeItem(
+                    title = "OCR only",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OCR_ONLY) }
+                )
+                ScreenAnalysisModeItem(
+                    title = "OFF",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.OFF,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OFF) }
+                )
+
+                if (llmSettings.analysisMode != ScreenAnalysisMode.OFF) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("画面送信間隔: ${llmSettings.screenCaptureIntervalSec} 秒")
+                    Slider(
+                        value = llmSettings.screenCaptureIntervalSec.toFloat(),
+                        onValueChange = {
+                            viewModel.updateScreenCaptureIntervalSec(it.roundToInt())
+                        },
+                        valueRange = MIN_SCREEN_CAPTURE_INTERVAL_SEC.toFloat()..MAX_SCREEN_CAPTURE_INTERVAL_SEC.toFloat(),
+                        steps = (MAX_SCREEN_CAPTURE_INTERVAL_SEC - MIN_SCREEN_CAPTURE_INTERVAL_SEC) / 10 - 1,
+                        enabled = llmSettings.enabled
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -351,6 +418,22 @@ private fun SettingsCard(
             )
             content()
         }
+    }
+}
+
+@Composable
+private fun ScreenAnalysisModeItem(
+    title: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
+        Text(text = title, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

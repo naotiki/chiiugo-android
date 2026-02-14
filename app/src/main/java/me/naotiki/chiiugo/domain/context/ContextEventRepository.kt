@@ -58,7 +58,9 @@ private data class NotificationEntry(
 
 @Singleton
 class ContextEventRepository @Inject constructor() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default.limitedParallelism(1)
+    )
     private val notifications = linkedMapOf<String, NotificationEntry>()
 
     private val _snapshotFlow = MutableStateFlow(MascotContextSnapshot())

@@ -1,10 +1,8 @@
 package me.naotiki.chiiugo.domain.comment
 
-import android.util.Log
 import me.naotiki.chiiugo.data.llm.LlmSettings
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepository
 import me.naotiki.chiiugo.domain.context.MascotContextSnapshot
-import me.naotiki.chiiugo.ui.component.texts
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,19 +18,18 @@ class KoogMascotCommentGenerator @Inject constructor(
                 snapshot = snapshot,
                 apiKey = llmSettingsRepository.getApiKeyOrNull()
             )
-                //.toSingleSentence()
-                //.take(40)
-                .ifBlank { "debug" }
-                //.ifBlank { texts.random() }
-        }.getOrThrow()/*.getOrElse {
+                .toSingleSentence()
+        }.getOrDefault("")
+    }
 
-            ((it.message?:it.cause) as String).apply {
-                Log.d("agent_context",it.message.toString())
-                Log.d("agent_context",it.cause.toString())
-            }
-
-            //texts.random()
-        }*/
+    override suspend fun generateScreenComment(input: ScreenPromptInput, settings: LlmSettings): String {
+        return runCatching {
+            koogPromptClient.generateScreenComment(
+                settings = settings,
+                input = input,
+                apiKey = llmSettingsRepository.getApiKeyOrNull()
+            ).toSingleSentence()
+        }.getOrDefault("")
     }
 }
 

@@ -7,5 +7,8 @@ data class LlmSettings(
     val cooldownSec: Int = 20,
     val maxTokens: Int = 1024,
     val temperature: Float = 0.9f,
-    val personaStyle: String = "フレンドリー"
+    val personaStyle: String = "フレンドリー",
+    val screenAnalysisEnabled: Boolean = false,
+    val analysisMode: ScreenAnalysisMode = ScreenAnalysisMode.MULTIMODAL_ONLY,
+    val screenCaptureIntervalSec: Int = 60
 )

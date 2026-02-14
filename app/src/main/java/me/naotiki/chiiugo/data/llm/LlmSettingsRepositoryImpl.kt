@@ -27,6 +27,8 @@ class LlmSettingsRepositoryImpl @Inject constructor(
     companion object {
         val MIN_CONFIGURABLE_TOKENS = 16
         val MAX_CONFIGURABLE_TOKENS = 2048
+        val MIN_SCREEN_CAPTURE_INTERVAL_SEC = 30
+        val MAX_SCREEN_CAPTURE_INTERVAL_SEC = 300
     }
     private object PreferenceKeys {
         val ENABLED = booleanPreferencesKey("enabled")
@@ -36,6 +38,9 @@ class LlmSettingsRepositoryImpl @Inject constructor(
         val MAX_TOKENS = intPreferencesKey("max_tokens")
         val TEMPERATURE = floatPreferencesKey("temperature")
         val PERSONA_STYLE = stringPreferencesKey("persona_style")
+        val SCREEN_ANALYSIS_ENABLED = booleanPreferencesKey("screen_analysis_enabled")
+        val ANALYSIS_MODE = stringPreferencesKey("analysis_mode")
+        val SCREEN_CAPTURE_INTERVAL_SEC = intPreferencesKey("screen_capture_interval_sec")
     }
 
     private val defaultSettings = LlmSettings()
@@ -52,7 +57,17 @@ class LlmSettingsRepositoryImpl @Inject constructor(
                 temperature = preferences[PreferenceKeys.TEMPERATURE]
                     ?: defaultSettings.temperature,
                 personaStyle = preferences[PreferenceKeys.PERSONA_STYLE]
-                    ?: defaultSettings.personaStyle
+                    ?: defaultSettings.personaStyle,
+                screenAnalysisEnabled = preferences[PreferenceKeys.SCREEN_ANALYSIS_ENABLED]
+                    ?: defaultSettings.screenAnalysisEnabled,
+                analysisMode = preferences[PreferenceKeys.ANALYSIS_MODE]
+                    ?.let { value ->
+                        runCatching { ScreenAnalysisMode.valueOf(value) }
+                            .getOrDefault(defaultSettings.analysisMode)
+                    } ?: defaultSettings.analysisMode,
+                screenCaptureIntervalSec = (preferences[PreferenceKeys.SCREEN_CAPTURE_INTERVAL_SEC]
+                    ?: defaultSettings.screenCaptureIntervalSec)
+                    .coerceIn(MIN_SCREEN_CAPTURE_INTERVAL_SEC, MAX_SCREEN_CAPTURE_INTERVAL_SEC)
             )
         }
 
@@ -99,6 +114,25 @@ class LlmSettingsRepositoryImpl @Inject constructor(
             preferences[PreferenceKeys.PERSONA_STYLE] = personaStyle.trim().ifBlank {
                 defaultSettings.personaStyle
             }
+        }
+    }
+
+    override suspend fun updateScreenAnalysisEnabled(enabled: Boolean) {
+        context.llmSettingsDataStore.edit { preferences ->
+            preferences[PreferenceKeys.SCREEN_ANALYSIS_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun updateAnalysisMode(mode: ScreenAnalysisMode) {
+        context.llmSettingsDataStore.edit { preferences ->
+            preferences[PreferenceKeys.ANALYSIS_MODE] = mode.name
+        }
+    }
+
+    override suspend fun updateScreenCaptureIntervalSec(intervalSec: Int) {
+        context.llmSettingsDataStore.edit { preferences ->
+            preferences[PreferenceKeys.SCREEN_CAPTURE_INTERVAL_SEC] =
+                intervalSec.coerceIn(MIN_SCREEN_CAPTURE_INTERVAL_SEC, MAX_SCREEN_CAPTURE_INTERVAL_SEC)
         }
     }
 

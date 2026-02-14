@@ -12,6 +12,9 @@ interface LlmSettingsRepository {
     suspend fun updateMaxTokens(maxTokens: Int)
     suspend fun updateTemperature(temperature: Float)
     suspend fun updatePersonaStyle(personaStyle: String)
+    suspend fun updateScreenAnalysisEnabled(enabled: Boolean)
+    suspend fun updateAnalysisMode(mode: ScreenAnalysisMode)
+    suspend fun updateScreenCaptureIntervalSec(intervalSec: Int)
 
     suspend fun saveApiKey(apiKey: String)
     suspend fun hasApiKey(): Boolean

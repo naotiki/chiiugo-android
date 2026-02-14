@@ -246,8 +246,8 @@ fun SettingsScreen(
             Slider(
                 value = llmSettings.maxTokens.toFloat(),
                 onValueChange = { viewModel.updateLlmMaxTokens(it.roundToInt()) },
-                valueRange = 16f..256f,
-                steps = 14
+                valueRange = 16f..1024f,
+                steps = 28
             )
 
             Text("Temperature: ${"%.2f".format(llmSettings.temperature)}")

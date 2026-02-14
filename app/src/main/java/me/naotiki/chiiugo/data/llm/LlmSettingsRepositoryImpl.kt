@@ -75,7 +75,7 @@ class LlmSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateMaxTokens(maxTokens: Int) {
         context.llmSettingsDataStore.edit { preferences ->
-            preferences[PreferenceKeys.MAX_TOKENS] = maxTokens.coerceIn(16, 512)
+            preferences[PreferenceKeys.MAX_TOKENS] = maxTokens.coerceIn(16, 1024)
         }
     }
 

@@ -34,9 +34,10 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
                 あなたはスマホ上で動くマスコットです。
                 - 返答は日本語で1文のみ
                 - 40文字以内
-                - 既存キャラ感のある軽口
                 - 攻撃/差別/脅し/個人情報推定は禁止
-                - 口調メモ: ${settings.personaStyle}
+                - カギ括弧などは用いない．
+                - フレンドリー
+                - 
                 """.trimIndent()
             )
             user(

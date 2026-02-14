@@ -84,58 +84,58 @@ fun SettingsScreen(
                 valueRange = 0.1f..1f
             )
         }
+        /*
+                // Area Offset Setting
+                SettingsCard(title = "移動エリアオフセット") {
+                    Text(
+                        text = "X: ${(config.areaOffset.first * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = config.areaOffset.first,
+                        onValueChange = {
+                            viewModel.updateAreaOffset(it to config.areaOffset.second)
+                        },
+                        valueRange = 0f..0.5f
+                    )
+                    Text(
+                        text = "Y: ${(config.areaOffset.second * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = config.areaOffset.second,
+                        onValueChange = {
+                            viewModel.updateAreaOffset(config.areaOffset.first to it)
+                        },
+                        valueRange = 0f..0.5f
+                    )
+                }
 
-        // Area Offset Setting
-        SettingsCard(title = "移動エリアオフセット") {
-            Text(
-                text = "X: ${(config.areaOffset.first * 100).roundToInt()}%",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Slider(
-                value = config.areaOffset.first,
-                onValueChange = {
-                    viewModel.updateAreaOffset(it to config.areaOffset.second)
-                },
-                valueRange = 0f..0.5f
-            )
-            Text(
-                text = "Y: ${(config.areaOffset.second * 100).roundToInt()}%",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Slider(
-                value = config.areaOffset.second,
-                onValueChange = {
-                    viewModel.updateAreaOffset(config.areaOffset.first to it)
-                },
-                valueRange = 0f..0.5f
-            )
-        }
-
-        // Area Size Setting
-        SettingsCard(title = "移動エリアサイズ") {
-            Text(
-                text = "幅: ${(config.areaSize.first * 100).roundToInt()}%",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Slider(
-                value = config.areaSize.first,
-                onValueChange = {
-                    viewModel.updateAreaSize(it to config.areaSize.second)
-                },
-                valueRange = 0.1f..1f
-            )
-            Text(
-                text = "高さ: ${(config.areaSize.second * 100).roundToInt()}%",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Slider(
-                value = config.areaSize.second,
-                onValueChange = {
-                    viewModel.updateAreaSize(config.areaSize.first to it)
-                },
-                valueRange = 0.1f..1f
-            )
-        }
+                // Area Size Setting
+                SettingsCard(title = "移動エリアサイズ") {
+                    Text(
+                        text = "幅: ${(config.areaSize.first * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = config.areaSize.first,
+                        onValueChange = {
+                            viewModel.updateAreaSize(it to config.areaSize.second)
+                        },
+                        valueRange = 0.1f..1f
+                    )
+                    Text(
+                        text = "高さ: ${(config.areaSize.second * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = config.areaSize.second,
+                        onValueChange = {
+                            viewModel.updateAreaSize(config.areaSize.first to it)
+                        },
+                        valueRange = 0.1f..1f
+                    )
+                }*/
 
         // Blocking Touch Setting
         SettingsCard(title = "タッチブロック") {

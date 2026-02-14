@@ -1,5 +1,9 @@
 package me.naotiki.chiiugo.ui.screen
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,20 +13,43 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.naotiki.chiiugo.data.llm.LlmSettings
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_CONFIGURABLE_TOKENS
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_CONFIGURABLE_TOKENS
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_SCREEN_CAPTURE_INTERVAL_SEC
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_SCREEN_CAPTURE_INTERVAL_SEC
+import me.naotiki.chiiugo.data.llm.ScreenAnalysisMode
+import me.naotiki.chiiugo.service.MascotAccessibilityService
 import kotlin.math.roundToInt
 
 @Composable
@@ -30,6 +57,35 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val config by viewModel.configState.collectAsStateWithLifecycle()
+    val llmSettings by viewModel.llmSettingsState.collectAsStateWithLifecycle()
+    val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
+    val connectionTestResult by viewModel.connectionTestResult.collectAsStateWithLifecycle()
+    val isTestingConnection by viewModel.isTestingConnection.collectAsStateWithLifecycle()
+    val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
+    val isLoadingModels by viewModel.isLoadingModels.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var apiKeyInput by rememberSaveable { mutableStateOf("") }
+    var notificationPermissionGranted by remember {
+        mutableStateOf(isNotificationListenerEnabled(context))
+    }
+    var accessibilityPermissionGranted by remember {
+        mutableStateOf(isAccessibilityServiceEnabled(context))
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationPermissionGranted = isNotificationListenerEnabled(context)
+                accessibilityPermissionGranted = isAccessibilityServiceEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -44,7 +100,6 @@ fun SettingsScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Image Size Setting
         SettingsCard(title = "画像サイズ") {
             Text(
                 text = "${config.imageSize.roundToInt()} dp",
@@ -58,7 +113,6 @@ fun SettingsScreen(
             )
         }
 
-        // Move Speed Setting
         SettingsCard(title = "移動速度") {
             Text(
                 text = "${config.moveSpeedMs} ms",
@@ -72,7 +126,6 @@ fun SettingsScreen(
             )
         }
 
-        // Transparency Setting
         SettingsCard(title = "透明度") {
             Text(
                 text = "${(config.transparency * 100).roundToInt()}%",
@@ -84,60 +137,7 @@ fun SettingsScreen(
                 valueRange = 0.1f..1f
             )
         }
-        /*
-                // Area Offset Setting
-                SettingsCard(title = "移動エリアオフセット") {
-                    Text(
-                        text = "X: ${(config.areaOffset.first * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaOffset.first,
-                        onValueChange = {
-                            viewModel.updateAreaOffset(it to config.areaOffset.second)
-                        },
-                        valueRange = 0f..0.5f
-                    )
-                    Text(
-                        text = "Y: ${(config.areaOffset.second * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaOffset.second,
-                        onValueChange = {
-                            viewModel.updateAreaOffset(config.areaOffset.first to it)
-                        },
-                        valueRange = 0f..0.5f
-                    )
-                }
 
-                // Area Size Setting
-                SettingsCard(title = "移動エリアサイズ") {
-                    Text(
-                        text = "幅: ${(config.areaSize.first * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaSize.first,
-                        onValueChange = {
-                            viewModel.updateAreaSize(it to config.areaSize.second)
-                        },
-                        valueRange = 0.1f..1f
-                    )
-                    Text(
-                        text = "高さ: ${(config.areaSize.second * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaSize.second,
-                        onValueChange = {
-                            viewModel.updateAreaSize(config.areaSize.first to it)
-                        },
-                        valueRange = 0.1f..1f
-                    )
-                }*/
-
-        // Blocking Touch Setting
         SettingsCard(title = "タッチブロック") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -152,6 +152,282 @@ fun SettingsScreen(
                     checked = config.blockingTouch,
                     onCheckedChange = { viewModel.updateBlockingTouch(it) }
                 )
+            }
+        }
+
+        SettingsCard(title = "LLM発話設定") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "LLM生成",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = llmSettings.enabled,
+                    onCheckedChange = { viewModel.updateLlmEnabled(it) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "画面解析",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = llmSettings.screenAnalysisEnabled,
+                    onCheckedChange = { viewModel.updateScreenAnalysisEnabled(it) },
+                    enabled = llmSettings.enabled
+                )
+            }
+
+            if (llmSettings.screenAnalysisEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "解析モード",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                ScreenAnalysisModeItem(
+                    title = "画面録画(マルチモーダル)",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.MULTIMODAL_ONLY) }
+                )
+                ScreenAnalysisModeItem(
+                    title = "画面録画(OCR)",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OCR_ONLY) }
+                )
+                ScreenAnalysisModeItem(
+                    title = "アクセシビリティ",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.ACCESSIBILITY_ONLY,
+                    enabled = llmSettings.enabled,
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.ACCESSIBILITY_ONLY) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("画面送信間隔: ${llmSettings.screenCaptureIntervalSec} 秒")
+                Slider(
+                    value = llmSettings.screenCaptureIntervalSec.toFloat(),
+                    onValueChange = {
+                        viewModel.updateScreenCaptureIntervalSec(it.roundToInt())
+                    },
+                    valueRange = MIN_SCREEN_CAPTURE_INTERVAL_SEC.toFloat()..MAX_SCREEN_CAPTURE_INTERVAL_SEC.toFloat(),
+                    steps = (MAX_SCREEN_CAPTURE_INTERVAL_SEC - MIN_SCREEN_CAPTURE_INTERVAL_SEC) / 10 - 1,
+                    enabled = llmSettings.enabled
+                )
+
+                if (
+                    llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY ||
+                    llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY
+                ) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "画面収録許可はマスコットON時に毎回表示されます",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (llmSettings.analysisMode == ScreenAnalysisMode.ACCESSIBILITY_ONLY) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (accessibilityPermissionGranted) {
+                                "アクセシビリティ: 許可済み"
+                            } else {
+                                "アクセシビリティ: 未許可"
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        }) {
+                            Text("許可画面を開く")
+                        }
+                    }
+                    Text(
+                        text = "未許可時は通知/メディア検知にフォールバックします",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.baseUrl,
+                onValueChange = { viewModel.updateLlmBaseUrl(it) },
+                label = { Text("LMStudio Base URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.model,
+                onValueChange = { viewModel.updateLlmModel(it) },
+                label = { Text("Model ID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.testLmStudioConnection() },
+                    enabled = !isTestingConnection && !isLoadingModels,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isTestingConnection) "接続中..." else "接続テスト")
+                }
+                Button(
+                    onClick = { viewModel.loadAvailableModels() },
+                    enabled = !isTestingConnection && !isLoadingModels,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isLoadingModels) "取得中..." else "モデル一覧取得")
+                }
+            }
+
+            if (!connectionTestResult.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = connectionTestResult ?: "",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            if (availableModels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "利用可能モデル (${availableModels.size})",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                availableModels.forEach { modelId ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = modelId,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Button(
+                            onClick = { viewModel.updateLlmModel(modelId) },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text("使う")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("クールダウン: ${llmSettings.cooldownSec} 秒")
+            Slider(
+                value = llmSettings.cooldownSec.toFloat(),
+                onValueChange = { viewModel.updateLlmCooldownSec(it.roundToInt()) },
+                valueRange = 5f..120f,
+                steps = 22
+            )
+
+            Text("Max Tokens: ${llmSettings.maxTokens}")
+            Slider(
+                value = llmSettings.maxTokens.toFloat(),
+                onValueChange = { viewModel.updateLlmMaxTokens(it.roundToInt()) },
+                valueRange = MIN_CONFIGURABLE_TOKENS.toFloat()..MAX_CONFIGURABLE_TOKENS.toFloat(),
+                steps = 28
+            )
+
+            Text("Temperature: ${"%.2f".format(llmSettings.temperature)}")
+            Slider(
+                value = llmSettings.temperature,
+                onValueChange = { viewModel.updateLlmTemperature(it) },
+                valueRange = 0f..2f
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.personaStyle,
+                onValueChange = { viewModel.updatePersonaStyle(it) },
+                label = { Text("口調メモ") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (notificationPermissionGranted) {
+                        "通知アクセス: 許可済み"
+                    } else {
+                        "通知アクセス: 未許可"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                }) {
+                    Text("許可画面を開く")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = apiKeyInput,
+                onValueChange = { apiKeyInput = it },
+                label = { Text("API Key (任意)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = PasswordVisualTransformation()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (hasApiKey) "APIキー: 保存済み" else "APIキー: 未保存",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = {
+                    viewModel.saveApiKey(apiKeyInput)
+                    apiKeyInput = ""
+                }) {
+                    Text("APIキー保存")
+                }
             }
         }
 
@@ -182,5 +458,38 @@ private fun SettingsCard(
             )
             content()
         }
+    }
+}
+
+@Composable
+private fun ScreenAnalysisModeItem(
+    title: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
+        Text(text = title, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun isNotificationListenerEnabled(context: Context): Boolean {
+    return NotificationManagerCompat.getEnabledListenerPackages(context)
+        .contains(context.packageName)
+}
+
+private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val expectedComponent = ComponentName(context, MascotAccessibilityService::class.java)
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabledServices.split(':').any { flattened ->
+        flattened.equals(expectedComponent.flattenToString(), ignoreCase = true) ||
+            flattened.equals(expectedComponent.flattenToShortString(), ignoreCase = true)
     }
 }

@@ -22,7 +22,7 @@ lifecycleService = "2.10.0"
 datastorePreferences = "1.1.2"
 hiltNavigationCompose = "1.2.0"
 securityCrypto = "1.1.0-alpha06"
-koog = "0.4.0"
+koog = "0.6.2"
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

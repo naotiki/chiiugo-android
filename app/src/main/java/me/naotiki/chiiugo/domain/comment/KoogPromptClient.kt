@@ -61,32 +61,48 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
             params = settings.toLlmParams()
         ) {
             buildCommonSystemPrompts()
-            when {
-                input.imageJpegBytes != null -> {
+            when (input.sourceType) {
+                ScreenPromptSourceType.IMAGE -> {
                     user {
                         text("以下は現在の画面キャプチャです。今の表示に対する短い文を返してください。")
-                        image(
-                            ContentPart.Image(
-                                content = AttachmentContent.Binary.Bytes(input.imageJpegBytes),
-                                format = "jpg",
-                                mimeType = "image/jpeg",
-                                fileName = "screen.jpg"
+                        if (input.imageJpegBytes != null) {
+                            image(
+                                ContentPart.Image(
+                                    content = AttachmentContent.Binary.Bytes(input.imageJpegBytes),
+                                    format = "jpg",
+                                    mimeType = "image/jpeg",
+                                    fileName = "screen.jpg"
+                                )
                             )
-                        )
+                        } else {
+                            text("画面キャプチャ画像は取得できませんでした。")
+                        }
                     }
                 }
 
-                !input.ocrText.isNullOrBlank() -> {
+                ScreenPromptSourceType.OCR_TEXT -> {
                     user(
                         """
-                        以下は現在画面のOCR結果です。
-                        ${input.ocrText}
+                        以下は現在画面のOCR解析結果です。
+                        ${input.ocrText.orEmpty()}
                         今の表示に対する短い文を返してください。
                         """.trimIndent()
                     )
                 }
 
-                else -> user("画面情報が取得できませんでした。")
+                ScreenPromptSourceType.ACCESSIBILITY_TEXT -> {
+                    user(
+                        """
+                        以下はアクセシビリティ機能から取得した現在画面の情報です。
+                        appName: ${input.appName.orEmpty()}
+                        packageName: ${input.packageName.orEmpty()}
+                        activityClassName: ${input.activityName.orEmpty()}
+                        visibleText:
+                        ${input.ocrText.orEmpty()}
+                        今の表示に対する短い文を返してください。
+                        """.trimIndent()
+                    )
+                }
             }
         }
         return executePrompt(prompt, settings, apiKey)

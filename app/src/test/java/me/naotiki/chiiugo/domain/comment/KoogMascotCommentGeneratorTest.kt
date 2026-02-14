@@ -54,7 +54,10 @@ class KoogMascotCommentGeneratorTest {
         )
 
         val output = generator.generateScreenComment(
-            input = ScreenPromptInput(ocrText = "sample text"),
+            input = ScreenPromptInput(
+                sourceType = ScreenPromptSourceType.OCR_TEXT,
+                ocrText = "sample text"
+            ),
             settings = LlmSettings()
         )
 

@@ -19,6 +19,8 @@ import javax.inject.Singleton
 
 private val Context.llmSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "llm_settings")
 
+private const val LEGACY_ANALYSIS_MODE_OFF = "OFF"
+
 @Singleton
 class LlmSettingsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -27,7 +29,7 @@ class LlmSettingsRepositoryImpl @Inject constructor(
     companion object {
         val MIN_CONFIGURABLE_TOKENS = 16
         val MAX_CONFIGURABLE_TOKENS = 2048
-        val MIN_SCREEN_CAPTURE_INTERVAL_SEC = 30
+        val MIN_SCREEN_CAPTURE_INTERVAL_SEC = 15
         val MAX_SCREEN_CAPTURE_INTERVAL_SEC = 300
     }
     private object PreferenceKeys {
@@ -47,6 +49,15 @@ class LlmSettingsRepositoryImpl @Inject constructor(
 
     override val settingsFlow: Flow<LlmSettings> =
         context.llmSettingsDataStore.data.map { preferences ->
+            val persistedScreenAnalysisEnabled = preferences[PreferenceKeys.SCREEN_ANALYSIS_ENABLED]
+                ?: defaultSettings.screenAnalysisEnabled
+            val persistedAnalysisMode = preferences[PreferenceKeys.ANALYSIS_MODE]
+            val (screenAnalysisEnabled, analysisMode) = normalizeScreenAnalysisSettings(
+                persistedScreenAnalysisEnabled = persistedScreenAnalysisEnabled,
+                persistedAnalysisMode = persistedAnalysisMode,
+                defaultMode = defaultSettings.analysisMode
+            )
+
             LlmSettings(
                 enabled = preferences[PreferenceKeys.ENABLED] ?: defaultSettings.enabled,
                 baseUrl = preferences[PreferenceKeys.BASE_URL] ?: defaultSettings.baseUrl,
@@ -58,13 +69,8 @@ class LlmSettingsRepositoryImpl @Inject constructor(
                     ?: defaultSettings.temperature,
                 personaStyle = preferences[PreferenceKeys.PERSONA_STYLE]
                     ?: defaultSettings.personaStyle,
-                screenAnalysisEnabled = preferences[PreferenceKeys.SCREEN_ANALYSIS_ENABLED]
-                    ?: defaultSettings.screenAnalysisEnabled,
-                analysisMode = preferences[PreferenceKeys.ANALYSIS_MODE]
-                    ?.let { value ->
-                        runCatching { ScreenAnalysisMode.valueOf(value) }
-                            .getOrDefault(defaultSettings.analysisMode)
-                    } ?: defaultSettings.analysisMode,
+                screenAnalysisEnabled = screenAnalysisEnabled,
+                analysisMode = analysisMode,
                 screenCaptureIntervalSec = (preferences[PreferenceKeys.SCREEN_CAPTURE_INTERVAL_SEC]
                     ?: defaultSettings.screenCaptureIntervalSec)
                     .coerceIn(MIN_SCREEN_CAPTURE_INTERVAL_SEC, MAX_SCREEN_CAPTURE_INTERVAL_SEC)
@@ -153,4 +159,20 @@ class LlmSettingsRepositoryImpl @Inject constructor(
             secureApiKeyStore.readApiKey()
         }
     }
+}
+
+internal fun normalizeScreenAnalysisSettings(
+    persistedScreenAnalysisEnabled: Boolean,
+    persistedAnalysisMode: String?,
+    defaultMode: ScreenAnalysisMode
+): Pair<Boolean, ScreenAnalysisMode> {
+    if (persistedAnalysisMode == LEGACY_ANALYSIS_MODE_OFF) {
+        return false to defaultMode
+    }
+    val normalizedMode = persistedAnalysisMode
+        ?.let { value ->
+            runCatching { ScreenAnalysisMode.valueOf(value) }.getOrDefault(defaultMode)
+        }
+        ?: defaultMode
+    return persistedScreenAnalysisEnabled to normalizedMode
 }

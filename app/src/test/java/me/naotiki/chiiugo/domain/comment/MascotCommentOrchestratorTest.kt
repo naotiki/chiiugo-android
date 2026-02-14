@@ -1,11 +1,13 @@
 package me.naotiki.chiiugo.domain.comment
 
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -15,6 +17,9 @@ import me.naotiki.chiiugo.data.llm.ScreenAnalysisMode
 import me.naotiki.chiiugo.domain.context.ContextEventRepository
 import me.naotiki.chiiugo.domain.context.MascotContextSnapshot
 import me.naotiki.chiiugo.domain.context.NotificationEventPayload
+import me.naotiki.chiiugo.domain.screen.AccessibilityScreenResult
+import me.naotiki.chiiugo.domain.screen.AccessibilityScreenSource
+import me.naotiki.chiiugo.domain.screen.ActivityChangeEvent
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureResult
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureSource
 import org.junit.Assert.assertEquals
@@ -44,7 +49,8 @@ class MascotCommentOrchestratorTest {
             contextEventRepository = contextRepository,
             llmSettingsRepository = settingsRepository,
             commentGenerator = generator,
-            screenCaptureSource = FakeScreenCaptureSource(available = false)
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
         )
 
         val job: Job = launch(Dispatchers.Default) {
@@ -85,44 +91,6 @@ class MascotCommentOrchestratorTest {
     }
 
     @Test
-    fun `does not emit when analysis mode is OFF`() = runBlocking {
-        val settingsRepository = FakeLlmSettingsRepository(
-            LlmSettings(
-                enabled = true,
-                screenAnalysisEnabled = true,
-                analysisMode = ScreenAnalysisMode.OFF
-            )
-        )
-        val contextRepository = ContextEventRepository()
-        val generated = Collections.synchronizedList(mutableListOf<String>())
-        val orchestrator = MascotCommentOrchestrator(
-            contextEventRepository = contextRepository,
-            llmSettingsRepository = settingsRepository,
-            commentGenerator = ConfigurableCommentGenerator(
-                eventResponse = "test-comment",
-                screenResponder = { _, _ -> "screen-comment" }
-            ),
-            screenCaptureSource = FakeScreenCaptureSource(available = false)
-        )
-
-        val job: Job = launch(Dispatchers.Default) {
-            orchestrator.run { text -> generated += text }
-        }
-
-        contextRepository.onNotificationPosted(
-            NotificationEventPayload(
-                key = "n1",
-                appName = "Sample",
-                category = "msg"
-            )
-        )
-        delay(300)
-
-        assertEquals(0, generated.size)
-        job.cancelAndJoin()
-    }
-
-    @Test
     fun `falls back to OCR when multimodal screen generation is blank`() = runBlocking {
         val settingsRepository = FakeLlmSettingsRepository(
             LlmSettings(
@@ -139,7 +107,7 @@ class MascotCommentOrchestratorTest {
             eventResponse = "",
             screenResponder = { input, _ ->
                 receivedScreenInputs += input
-                if (input.imageJpegBytes != null) "" else "ocr-comment"
+                if (input.sourceType == ScreenPromptSourceType.IMAGE) "" else "ocr-comment"
             }
         )
         val orchestrator = MascotCommentOrchestrator(
@@ -152,7 +120,8 @@ class MascotCommentOrchestratorTest {
                     imageJpegBytes = byteArrayOf(1, 2, 3),
                     ocrText = "OCR_RESULT"
                 )
-            )
+            ),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
         )
 
         val job: Job = launch(Dispatchers.Default) {
@@ -163,7 +132,8 @@ class MascotCommentOrchestratorTest {
 
         assertEquals("ocr-comment", generated.first())
         assertEquals(2, receivedScreenInputs.size)
-        assertTrue(receivedScreenInputs.first().imageJpegBytes != null)
+        assertEquals(ScreenPromptSourceType.IMAGE, receivedScreenInputs.first().sourceType)
+        assertEquals(ScreenPromptSourceType.OCR_TEXT, receivedScreenInputs.last().sourceType)
         assertEquals("OCR_RESULT", receivedScreenInputs.last().ocrText)
         job.cancelAndJoin()
     }
@@ -193,7 +163,8 @@ class MascotCommentOrchestratorTest {
                     imageJpegBytes = byteArrayOf(7, 8, 9),
                     ocrText = "   "
                 )
-            )
+            ),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
         )
 
         val job: Job = launch(Dispatchers.Default) {
@@ -224,7 +195,8 @@ class MascotCommentOrchestratorTest {
                 eventResponse = "event-comment",
                 screenResponder = { _, _ -> "screen-comment" }
             ),
-            screenCaptureSource = FakeScreenCaptureSource(available = false)
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
         )
 
         val job: Job = launch(Dispatchers.Default) {
@@ -241,6 +213,159 @@ class MascotCommentOrchestratorTest {
         )
         waitForCondition(timeoutMillis = 2_000L) { generated.isNotEmpty() }
         assertEquals("event-comment", generated.first())
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `emits periodic comment in accessibility mode`() = runBlocking {
+        val settingsRepository = FakeLlmSettingsRepository(
+            LlmSettings(
+                enabled = true,
+                screenAnalysisEnabled = true,
+                analysisMode = ScreenAnalysisMode.ACCESSIBILITY_ONLY,
+                screenCaptureIntervalSec = 30
+            )
+        )
+        val generated = Collections.synchronizedList(mutableListOf<String>())
+        val contextRepository = ContextEventRepository()
+        val accessibilitySource = FakeAccessibilityScreenSource(
+            available = true,
+            result = AccessibilityScreenResult(
+                text = "ホーム画面です",
+                appName = "Launcher",
+                packageName = "com.android.launcher",
+                activityName = "LauncherActivity"
+            )
+        )
+        val orchestrator = MascotCommentOrchestrator(
+            contextEventRepository = contextRepository,
+            llmSettingsRepository = settingsRepository,
+            commentGenerator = ConfigurableCommentGenerator(
+                eventResponse = "event-comment",
+                screenResponder = { input, _ ->
+                    if (input.sourceType == ScreenPromptSourceType.ACCESSIBILITY_TEXT) {
+                        "accessibility-comment"
+                    } else {
+                        "unexpected"
+                    }
+                }
+            ),
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = accessibilitySource
+        )
+
+        val job: Job = launch(Dispatchers.Default) {
+            orchestrator.run { text -> generated += text }
+        }
+
+        waitForCondition(timeoutMillis = 2_000L) { generated.isNotEmpty() }
+        assertEquals("accessibility-comment", generated.first())
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `activity change trigger in accessibility mode respects cooldown`() = runBlocking {
+        val settingsRepository = FakeLlmSettingsRepository(
+            LlmSettings(
+                enabled = true,
+                screenAnalysisEnabled = true,
+                analysisMode = ScreenAnalysisMode.ACCESSIBILITY_ONLY,
+                cooldownSec = 1,
+                screenCaptureIntervalSec = 300
+            )
+        )
+        val generated = Collections.synchronizedList(mutableListOf<String>())
+        val contextRepository = ContextEventRepository()
+        val accessibilitySource = FakeAccessibilityScreenSource(
+            available = true,
+            result = AccessibilityScreenResult(
+                text = "初期画面",
+                appName = "AppA",
+                packageName = "com.test.a",
+                activityName = "AActivity"
+            )
+        )
+        val orchestrator = MascotCommentOrchestrator(
+            contextEventRepository = contextRepository,
+            llmSettingsRepository = settingsRepository,
+            commentGenerator = ConfigurableCommentGenerator(
+                eventResponse = "event-comment",
+                screenResponder = { input, _ ->
+                    if (input.sourceType == ScreenPromptSourceType.ACCESSIBILITY_TEXT) {
+                        "access-comment"
+                    } else {
+                        "unexpected"
+                    }
+                }
+            ),
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = accessibilitySource
+        )
+
+        val job: Job = launch(Dispatchers.Default) {
+            orchestrator.run { text -> generated += text }
+        }
+        waitForCondition(timeoutMillis = 2_000L) { generated.size >= 1 }
+
+        accessibilitySource.updateResult(
+            AccessibilityScreenResult(
+                text = "次の画面",
+                appName = "AppB",
+                packageName = "com.test.b",
+                activityName = "BActivity"
+            )
+        )
+        accessibilitySource.emitActivityChange("com.test.b", "BActivity")
+        waitForCondition(timeoutMillis = 2_000L) { generated.size >= 2 }
+
+        accessibilitySource.emitActivityChange("com.test.c", "CActivity")
+        delay(200)
+        assertEquals(2, generated.size)
+
+        delay(1_100)
+        accessibilitySource.emitActivityChange("com.test.d", "DActivity")
+        waitForCondition(timeoutMillis = 2_000L) { generated.size >= 3 }
+        assertEquals(3, generated.size)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `falls back to event mode when accessibility capture is unavailable`() = runBlocking {
+        val settingsRepository = FakeLlmSettingsRepository(
+            LlmSettings(
+                enabled = true,
+                cooldownSec = 1,
+                screenAnalysisEnabled = true,
+                analysisMode = ScreenAnalysisMode.ACCESSIBILITY_ONLY
+            )
+        )
+        val contextRepository = ContextEventRepository()
+        val generated = Collections.synchronizedList(mutableListOf<String>())
+        val orchestrator = MascotCommentOrchestrator(
+            contextEventRepository = contextRepository,
+            llmSettingsRepository = settingsRepository,
+            commentGenerator = ConfigurableCommentGenerator(
+                eventResponse = "event-fallback",
+                screenResponder = { _, _ -> "screen-comment" }
+            ),
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
+        )
+
+        val job: Job = launch(Dispatchers.Default) {
+            orchestrator.run { text -> generated += text }
+        }
+        delay(200)
+
+        contextRepository.onNotificationPosted(
+            NotificationEventPayload(
+                key = "access-fallback-n1",
+                appName = "Sample",
+                category = "msg"
+            )
+        )
+        waitForCondition(timeoutMillis = 2_000L) { generated.isNotEmpty() }
+        assertEquals("event-fallback", generated.first())
         job.cancelAndJoin()
     }
 
@@ -266,6 +391,38 @@ class MascotCommentOrchestratorTest {
         override val isCaptureAvailableFlow = MutableStateFlow(available).asStateFlow()
 
         override suspend fun captureOnce(): ScreenCaptureResult? = result
+    }
+
+    private class FakeAccessibilityScreenSource(
+        available: Boolean,
+        result: AccessibilityScreenResult? = null
+    ) : AccessibilityScreenSource {
+        private val mutableAvailability = MutableStateFlow(available)
+        private val mutableActivityChange = MutableSharedFlow<ActivityChangeEvent>(
+            replay = 0,
+            extraBufferCapacity = 8
+        )
+
+        @Volatile
+        private var latestResult: AccessibilityScreenResult? = result
+
+        override val isCaptureAvailableFlow = mutableAvailability.asStateFlow()
+        override val activityChangeFlow = mutableActivityChange.asSharedFlow()
+
+        override suspend fun captureOnce(): AccessibilityScreenResult? = latestResult
+
+        fun updateResult(result: AccessibilityScreenResult?) {
+            latestResult = result
+        }
+
+        fun emitActivityChange(packageName: String?, activityName: String?) {
+            mutableActivityChange.tryEmit(
+                ActivityChangeEvent(
+                    packageName = packageName,
+                    activityName = activityName
+                )
+            )
+        }
     }
 
     private class FakeLlmSettingsRepository(initial: LlmSettings) : LlmSettingsRepository {

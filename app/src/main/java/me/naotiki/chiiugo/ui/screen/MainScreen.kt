@@ -68,7 +68,10 @@ fun MainScreen(viewModel: MainScreenViewModel = hiltViewModel()) {
                 if (it) {
                     val shouldRequestScreenCapture = llmSettings.enabled &&
                         llmSettings.screenAnalysisEnabled &&
-                        llmSettings.analysisMode != ScreenAnalysisMode.OFF
+                        (
+                            llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY ||
+                                llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY
+                            )
 
                     if (shouldRequestScreenCapture && context.findActivity() != null) {
                         capturePermissionLauncher.launch(projectionManager.createScreenCaptureIntent())

@@ -1,5 +1,6 @@
 package me.naotiki.chiiugo.ui.screen
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -48,6 +49,7 @@ import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_CONFI
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_SCREEN_CAPTURE_INTERVAL_SEC
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_SCREEN_CAPTURE_INTERVAL_SEC
 import me.naotiki.chiiugo.data.llm.ScreenAnalysisMode
+import me.naotiki.chiiugo.service.MascotAccessibilityService
 import kotlin.math.roundToInt
 
 @Composable
@@ -68,11 +70,15 @@ fun SettingsScreen(
     var notificationPermissionGranted by remember {
         mutableStateOf(isNotificationListenerEnabled(context))
     }
+    var accessibilityPermissionGranted by remember {
+        mutableStateOf(isAccessibilityServiceEnabled(context))
+    }
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 notificationPermissionGranted = isNotificationListenerEnabled(context)
+                accessibilityPermissionGranted = isAccessibilityServiceEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -182,12 +188,6 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "画面収録許可はマスコットON時に毎回表示されます",
-                style = MaterialTheme.typography.bodySmall
-            )
-
             if (llmSettings.screenAnalysisEnabled) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -207,23 +207,63 @@ fun SettingsScreen(
                     onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OCR_ONLY) }
                 )
                 ScreenAnalysisModeItem(
-                    title = "OFF",
-                    selected = llmSettings.analysisMode == ScreenAnalysisMode.OFF,
+                    title = "Accessibility only",
+                    selected = llmSettings.analysisMode == ScreenAnalysisMode.ACCESSIBILITY_ONLY,
                     enabled = llmSettings.enabled,
-                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OFF) }
+                    onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.ACCESSIBILITY_ONLY) }
                 )
 
-                if (llmSettings.analysisMode != ScreenAnalysisMode.OFF) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("画面送信間隔: ${llmSettings.screenCaptureIntervalSec} 秒")
+                Slider(
+                    value = llmSettings.screenCaptureIntervalSec.toFloat(),
+                    onValueChange = {
+                        viewModel.updateScreenCaptureIntervalSec(it.roundToInt())
+                    },
+                    valueRange = MIN_SCREEN_CAPTURE_INTERVAL_SEC.toFloat()..MAX_SCREEN_CAPTURE_INTERVAL_SEC.toFloat(),
+                    steps = (MAX_SCREEN_CAPTURE_INTERVAL_SEC - MIN_SCREEN_CAPTURE_INTERVAL_SEC) / 10 - 1,
+                    enabled = llmSettings.enabled
+                )
+
+                if (
+                    llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY ||
+                    llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY
+                ) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "画面収録許可はマスコットON時に毎回表示されます",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                if (llmSettings.analysisMode == ScreenAnalysisMode.ACCESSIBILITY_ONLY) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("画面送信間隔: ${llmSettings.screenCaptureIntervalSec} 秒")
-                    Slider(
-                        value = llmSettings.screenCaptureIntervalSec.toFloat(),
-                        onValueChange = {
-                            viewModel.updateScreenCaptureIntervalSec(it.roundToInt())
-                        },
-                        valueRange = MIN_SCREEN_CAPTURE_INTERVAL_SEC.toFloat()..MAX_SCREEN_CAPTURE_INTERVAL_SEC.toFloat(),
-                        steps = (MAX_SCREEN_CAPTURE_INTERVAL_SEC - MIN_SCREEN_CAPTURE_INTERVAL_SEC) / 10 - 1,
-                        enabled = llmSettings.enabled
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (accessibilityPermissionGranted) {
+                                "アクセシビリティ: 許可済み"
+                            } else {
+                                "アクセシビリティ: 未許可"
+                            },
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        }) {
+                            Text("許可画面を開く")
+                        }
+                    }
+                    Text(
+                        text = "未許可時は通知/メディア検知にフォールバックします",
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
@@ -440,4 +480,16 @@ private fun ScreenAnalysisModeItem(
 private fun isNotificationListenerEnabled(context: Context): Boolean {
     return NotificationManagerCompat.getEnabledListenerPackages(context)
         .contains(context.packageName)
+}
+
+private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+    val expectedComponent = ComponentName(context, MascotAccessibilityService::class.java)
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabledServices.split(':').any { flattened ->
+        flattened.equals(expectedComponent.flattenToString(), ignoreCase = true) ||
+            flattened.equals(expectedComponent.flattenToShortString(), ignoreCase = true)
+    }
 }

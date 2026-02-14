@@ -19,6 +19,9 @@ import me.naotiki.chiiugo.domain.comment.KoogPromptClientImpl
 import me.naotiki.chiiugo.domain.comment.MascotCommentOrchestrator
 import me.naotiki.chiiugo.domain.comment.MascotCommentGenerator
 import me.naotiki.chiiugo.domain.context.ContextEventRepository
+import me.naotiki.chiiugo.domain.screen.AccessibilityScreenBridge
+import me.naotiki.chiiugo.domain.screen.AccessibilityScreenController
+import me.naotiki.chiiugo.domain.screen.AccessibilityScreenSource
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureBridge
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureController
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureManager
@@ -73,17 +76,37 @@ abstract class ApplicationModule {
 
         @Provides
         @Singleton
+        fun provideAccessibilityScreenBridge(): AccessibilityScreenBridge {
+            return AccessibilityScreenBridge()
+        }
+
+        @Provides
+        @Singleton
+        fun provideAccessibilityScreenSource(
+            bridge: AccessibilityScreenBridge
+        ): AccessibilityScreenSource = bridge
+
+        @Provides
+        @Singleton
+        fun provideAccessibilityScreenController(
+            bridge: AccessibilityScreenBridge
+        ): AccessibilityScreenController = bridge
+
+        @Provides
+        @Singleton
         fun provideMascotCommentOrchestrator(
             contextEventRepository: ContextEventRepository,
             llmSettingsRepository: LlmSettingsRepository,
             commentGenerator: MascotCommentGenerator,
-            screenCaptureSource: ScreenCaptureSource
+            screenCaptureSource: ScreenCaptureSource,
+            accessibilityScreenSource: AccessibilityScreenSource
         ): MascotCommentOrchestrator {
             return MascotCommentOrchestrator(
                 contextEventRepository = contextEventRepository,
                 llmSettingsRepository = llmSettingsRepository,
                 commentGenerator = commentGenerator,
-                screenCaptureSource = screenCaptureSource
+                screenCaptureSource = screenCaptureSource,
+                accessibilityScreenSource = accessibilityScreenSource
             )
         }
     }

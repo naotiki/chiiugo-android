@@ -183,7 +183,10 @@ class MascotOverlayService : LifecycleService(), SavedStateRegistryOwner {
             }
 
             val settings = llmSettingsRepository.settingsFlow.first()
-            if (!settings.enabled || !settings.screenAnalysisEnabled || settings.analysisMode == ScreenAnalysisMode.OFF) {
+            val usesMediaProjectionMode =
+                settings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY ||
+                    settings.analysisMode == ScreenAnalysisMode.OCR_ONLY
+            if (!settings.enabled || !settings.screenAnalysisEnabled || !usesMediaProjectionMode) {
                 return@launch
             }
 

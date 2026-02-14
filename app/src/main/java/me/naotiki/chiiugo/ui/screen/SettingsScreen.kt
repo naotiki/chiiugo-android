@@ -1,6 +1,5 @@
 package me.naotiki.chiiugo.ui.screen
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -36,13 +35,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
-import me.naotiki.chiiugo.service.MascotContextListenerService
 
 @Composable
 fun SettingsScreen(
@@ -51,6 +50,10 @@ fun SettingsScreen(
     val config by viewModel.configState.collectAsStateWithLifecycle()
     val llmSettings by viewModel.llmSettingsState.collectAsStateWithLifecycle()
     val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
+    val connectionTestResult by viewModel.connectionTestResult.collectAsStateWithLifecycle()
+    val isTestingConnection by viewModel.isTestingConnection.collectAsStateWithLifecycle()
+    val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
+    val isLoadingModels by viewModel.isLoadingModels.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -174,6 +177,63 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.testLmStudioConnection() },
+                    enabled = !isTestingConnection && !isLoadingModels,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isTestingConnection) "接続中..." else "接続テスト")
+                }
+                Button(
+                    onClick = { viewModel.loadAvailableModels() },
+                    enabled = !isTestingConnection && !isLoadingModels,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(if (isLoadingModels) "取得中..." else "モデル一覧取得")
+                }
+            }
+
+            if (!connectionTestResult.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = connectionTestResult ?: "",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            if (availableModels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "利用可能モデル (${availableModels.size})",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                availableModels.forEach { modelId ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = modelId,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Button(
+                            onClick = { viewModel.updateLlmModel(modelId) },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text("使う")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
             Text("クールダウン: ${llmSettings.cooldownSec} 秒")
             Slider(
                 value = llmSettings.cooldownSec.toFloat(),
@@ -292,13 +352,6 @@ private fun SettingsCard(
 }
 
 private fun isNotificationListenerEnabled(context: Context): Boolean {
-    val enabledListeners = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_NOTIFICATION_LISTENERS
-    ) ?: return false
-
-    val targetComponent = ComponentName(context, MascotContextListenerService::class.java)
-    return enabledListeners.split(":").any { enabledComponent ->
-        enabledComponent.equals(targetComponent.flattenToString(), ignoreCase = true)
-    }
+    return NotificationManagerCompat.getEnabledListenerPackages(context)
+        .contains(context.packageName)
 }

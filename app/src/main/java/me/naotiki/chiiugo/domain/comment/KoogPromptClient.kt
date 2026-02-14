@@ -3,7 +3,7 @@ package me.naotiki.chiiugo.domain.comment
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
-import ai.koog.prompt.llm.openai.OpenAIModels
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.params.LLMParams
 import kotlinx.coroutines.withTimeout
 import me.naotiki.chiiugo.data.llm.LlmSettings

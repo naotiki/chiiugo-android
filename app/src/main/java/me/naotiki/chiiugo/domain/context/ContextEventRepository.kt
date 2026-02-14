@@ -20,6 +20,7 @@ sealed interface ContextEvent {
 
 data class NotificationContextEvent(
     val totalNotificationCount: Int,
+    val latestNotification: RecentNotificationSnapshot? = null,
     override val timestampMillis: Long = System.currentTimeMillis()
 ) : ContextEvent
 
@@ -72,6 +73,8 @@ class ContextEventRepository @Inject constructor() {
 
     fun onNotificationPosted(payload: NotificationEventPayload) {
         scope.launch {
+            val latestNotification = payload.toRecentNotificationSnapshot()
+            val isNewNotification = !notifications.containsKey(payload.key)
             notifications[payload.key] = NotificationEntry(
                 appName = payload.appName,
                 category = payload.category,
@@ -79,7 +82,9 @@ class ContextEventRepository @Inject constructor() {
                 body = payload.body,
                 postedAtEpochMillis = payload.postedAtEpochMillis
             )
-            publishNotificationUpdate()
+            publishNotificationUpdate(
+                latestNotification = latestNotification.takeIf { isNewNotification }
+            )
         }
     }
 
@@ -144,7 +149,9 @@ class ContextEventRepository @Inject constructor() {
         }
     }
 
-    private suspend fun publishNotificationUpdate() {
+    private suspend fun publishNotificationUpdate(
+        latestNotification: RecentNotificationSnapshot? = null
+    ) {
         val recentNotifications = notifications.values
             .sortedByDescending { it.postedAtEpochMillis }
             .take(8)
@@ -164,6 +171,21 @@ class ContextEventRepository @Inject constructor() {
             updatedAtEpochMillis = System.currentTimeMillis()
         )
 
-        _events.emit(NotificationContextEvent(totalNotificationCount = notifications.size))
+        _events.emit(
+            NotificationContextEvent(
+                totalNotificationCount = notifications.size,
+                latestNotification = latestNotification
+            )
+        )
     }
+}
+
+private fun NotificationEventPayload.toRecentNotificationSnapshot(): RecentNotificationSnapshot {
+    return RecentNotificationSnapshot(
+        appName = appName,
+        category = category,
+        title = title,
+        body = body,
+        postedAtEpochMillis = postedAtEpochMillis
+    )
 }

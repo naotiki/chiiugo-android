@@ -3,8 +3,11 @@ package me.naotiki.chiiugo.domain.comment
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.transformLatest
+import me.naotiki.chiiugo.domain.context.ContextEvent
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepository
 import me.naotiki.chiiugo.domain.context.ContextEventRepository
+import me.naotiki.chiiugo.domain.context.MascotContextSnapshot
+import me.naotiki.chiiugo.domain.context.NotificationContextEvent
 import me.naotiki.chiiugo.ui.component.MascotState
 import me.naotiki.chiiugo.ui.component.texts
 import javax.inject.Inject
@@ -25,7 +28,7 @@ class MascotCommentOrchestrator @Inject constructor(
     suspend fun run(speak: suspend (String) -> Unit) {
         var lastGeneratedAt = 0L
 
-        contextEventRepository.events.transformLatest {
+        contextEventRepository.events.transformLatest { event ->
             val settings = llmSettingsRepository.settingsFlow.first()
             val now = System.currentTimeMillis()
             val cooldownMillis = settings.cooldownSec * 1000L
@@ -34,7 +37,7 @@ class MascotCommentOrchestrator @Inject constructor(
             }
 
             val comment = if (settings.enabled) {
-                val snapshot = contextEventRepository.snapshotFlow.value
+                val snapshot = contextEventRepository.snapshotFlow.value.withEventFocus(event)
                 commentGenerator.generate(snapshot, settings)
             } else {
                 texts.random()
@@ -49,4 +52,9 @@ class MascotCommentOrchestrator @Inject constructor(
                 speak(text)
             }
     }
+}
+
+private fun MascotContextSnapshot.withEventFocus(event: ContextEvent): MascotContextSnapshot {
+    val latestNotification = (event as? NotificationContextEvent)?.latestNotification ?: return this
+    return copy(recentNotifications = listOf(latestNotification))
 }

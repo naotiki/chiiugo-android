@@ -1,5 +1,6 @@
 package me.naotiki.chiiugo.domain.comment
 
+import android.util.Log
 import me.naotiki.chiiugo.data.llm.LlmSettings
 import me.naotiki.chiiugo.data.llm.LlmSettingsRepository
 import me.naotiki.chiiugo.domain.context.MascotContextSnapshot
@@ -23,10 +24,15 @@ class KoogMascotCommentGenerator @Inject constructor(
                 //.take(40)
                 .ifBlank { "debug" }
                 //.ifBlank { texts.random() }
-        }.getOrElse {
-            (it.message?:it.cause) as String
+        }.getOrThrow()/*.getOrElse {
+
+            ((it.message?:it.cause) as String).apply {
+                Log.d("agent_context",it.message.toString())
+                Log.d("agent_context",it.cause.toString())
+            }
+
             //texts.random()
-        }
+        }*/
     }
 }
 

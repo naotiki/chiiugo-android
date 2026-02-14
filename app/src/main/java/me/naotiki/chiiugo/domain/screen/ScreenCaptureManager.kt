@@ -37,6 +37,7 @@ class ScreenCaptureManager(
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     private var mediaProjection: MediaProjection? = null
+    private var mediaProjectionCallback: MediaProjection.Callback? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
 
@@ -50,16 +51,27 @@ class ScreenCaptureManager(
     suspend fun start(resultCode: Int, projectionData: Intent): Boolean = withContext(Dispatchers.Default) {
         sessionMutex.withLock {
             stopInternal()
+            var projection: MediaProjection? = null
+            var callback: MediaProjection.Callback? = null
             runCatching {
                 val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                val projection = manager.getMediaProjection(resultCode, projectionData) ?: return@runCatching false
+                projection = manager.getMediaProjection(resultCode, projectionData)
+                val activeProjection = projection ?: return@runCatching false
                 val metrics = context.resources.displayMetrics
                 val width = metrics.widthPixels.coerceAtLeast(1)
                 val height = metrics.heightPixels.coerceAtLeast(1)
                 val density = metrics.densityDpi.coerceAtLeast(1)
 
+                callback = object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        // System may stop projection asynchronously (permission revoked / lock screen, etc.).
+                        runCatching { clearCaptureState(stopProjection = false) }
+                    }
+                }
+                activeProjection.registerCallback(callback, mainHandler)
+
                 val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
-                val display = projection.createVirtualDisplay(
+                val display = activeProjection.createVirtualDisplay(
                     "chiiugo-screen-capture",
                     width,
                     height,
@@ -70,11 +82,22 @@ class ScreenCaptureManager(
                     null
                 )
 
-                mediaProjection = projection
+                mediaProjection = activeProjection
+                mediaProjectionCallback = callback
                 imageReader = reader
                 virtualDisplay = display
                 true
-            }.getOrDefault(false)
+            }.getOrElse {
+                runCatching {
+                    val failedProjection = projection
+                    val failedCallback = callback
+                    if (failedProjection != null && failedCallback != null) {
+                        failedProjection.unregisterCallback(failedCallback)
+                    }
+                    failedProjection?.stop()
+                }
+                false
+            }
         }
     }
 
@@ -154,12 +177,28 @@ class ScreenCaptureManager(
     }
 
     private fun stopInternal() {
-        runCatching { virtualDisplay?.release() }
-        runCatching { imageReader?.close() }
-        runCatching { mediaProjection?.stop() }
+        clearCaptureState(stopProjection = true)
+    }
+
+    private fun clearCaptureState(stopProjection: Boolean) {
+        val projection = mediaProjection
+        val callback = mediaProjectionCallback
+        val display = virtualDisplay
+        val reader = imageReader
+
+        mediaProjection = null
+        mediaProjectionCallback = null
         virtualDisplay = null
         imageReader = null
-        mediaProjection = null
+
+        runCatching { display?.release() }
+        runCatching { reader?.close() }
+        if (projection != null && callback != null) {
+            runCatching { projection.unregisterCallback(callback) }
+        }
+        if (stopProjection) {
+            runCatching { projection?.stop() }
+        }
     }
 
     private fun Image.toBitmap(): Bitmap {

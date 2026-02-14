@@ -195,19 +195,19 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleSmall
                 )
                 ScreenAnalysisModeItem(
-                    title = "Multimodal only",
+                    title = "画面録画(マルチモーダル)",
                     selected = llmSettings.analysisMode == ScreenAnalysisMode.MULTIMODAL_ONLY,
                     enabled = llmSettings.enabled,
                     onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.MULTIMODAL_ONLY) }
                 )
                 ScreenAnalysisModeItem(
-                    title = "OCR only",
+                    title = "画面録画(OCR)",
                     selected = llmSettings.analysisMode == ScreenAnalysisMode.OCR_ONLY,
                     enabled = llmSettings.enabled,
                     onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.OCR_ONLY) }
                 )
                 ScreenAnalysisModeItem(
-                    title = "Accessibility only",
+                    title = "アクセシビリティ",
                     selected = llmSettings.analysisMode == ScreenAnalysisMode.ACCESSIBILITY_ONLY,
                     enabled = llmSettings.enabled,
                     onClick = { viewModel.updateAnalysisMode(ScreenAnalysisMode.ACCESSIBILITY_ONLY) }

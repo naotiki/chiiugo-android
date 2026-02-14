@@ -22,6 +22,7 @@ import me.naotiki.chiiugo.domain.screen.AccessibilityScreenSource
 import me.naotiki.chiiugo.domain.screen.ActivityChangeEvent
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureResult
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureSource
+import me.naotiki.chiiugo.ui.component.texts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,6 +88,47 @@ class MascotCommentOrchestratorTest {
         waitForCondition(timeoutMillis = 2_000L) { generated.size >= 2 }
 
         assertEquals(2, generated.size)
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `uses built-in random text when llm is disabled`() = runBlocking {
+        val settingsRepository = FakeLlmSettingsRepository(
+            LlmSettings(
+                enabled = false,
+                cooldownSec = 1,
+                screenAnalysisEnabled = true,
+                analysisMode = ScreenAnalysisMode.ACCESSIBILITY_ONLY
+            )
+        )
+        val contextRepository = ContextEventRepository()
+        val generated = Collections.synchronizedList(mutableListOf<String>())
+        val orchestrator = MascotCommentOrchestrator(
+            contextEventRepository = contextRepository,
+            llmSettingsRepository = settingsRepository,
+            commentGenerator = ConfigurableCommentGenerator(
+                eventResponse = "",
+                screenResponder = { _, _ -> "" }
+            ),
+            screenCaptureSource = FakeScreenCaptureSource(available = false),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
+        )
+
+        val job: Job = launch(Dispatchers.Default) {
+            orchestrator.run { text -> generated += text }
+        }
+        delay(200)
+
+        contextRepository.onNotificationPosted(
+            NotificationEventPayload(
+                key = "llm-off-random-1",
+                appName = "Sample",
+                category = "msg"
+            )
+        )
+        waitForCondition(timeoutMillis = 2_000L) { generated.isNotEmpty() }
+
+        assertTrue(texts.contains(generated.first()))
         job.cancelAndJoin()
     }
 
@@ -213,6 +255,61 @@ class MascotCommentOrchestratorTest {
         )
         waitForCondition(timeoutMillis = 2_000L) { generated.isNotEmpty() }
         assertEquals("event-comment", generated.first())
+        job.cancelAndJoin()
+    }
+
+    @Test
+    fun `keeps event comments enabled while screen analysis is active`() = runBlocking {
+        val settingsRepository = FakeLlmSettingsRepository(
+            LlmSettings(
+                enabled = true,
+                cooldownSec = 1,
+                screenAnalysisEnabled = true,
+                analysisMode = ScreenAnalysisMode.MULTIMODAL_ONLY,
+                screenCaptureIntervalSec = 30
+            )
+        )
+        val contextRepository = ContextEventRepository()
+        val generated = Collections.synchronizedList(mutableListOf<String>())
+        val orchestrator = MascotCommentOrchestrator(
+            contextEventRepository = contextRepository,
+            llmSettingsRepository = settingsRepository,
+            commentGenerator = ConfigurableCommentGenerator(
+                eventResponse = "event-comment",
+                screenResponder = { input, _ ->
+                    if (input.sourceType == ScreenPromptSourceType.IMAGE) {
+                        "screen-comment"
+                    } else {
+                        "screen-ocr-comment"
+                    }
+                }
+            ),
+            screenCaptureSource = FakeScreenCaptureSource(
+                available = true,
+                result = ScreenCaptureResult(
+                    imageJpegBytes = byteArrayOf(1, 2, 3),
+                    ocrText = "OCR_RESULT"
+                )
+            ),
+            accessibilityScreenSource = FakeAccessibilityScreenSource(available = false)
+        )
+
+        val job: Job = launch(Dispatchers.Default) {
+            orchestrator.run { text -> generated += text }
+        }
+
+        waitForCondition(timeoutMillis = 2_000L) { generated.contains("screen-comment") }
+        contextRepository.onNotificationPosted(
+            NotificationEventPayload(
+                key = "event-active-screen-1",
+                appName = "Sample",
+                category = "msg"
+            )
+        )
+        waitForCondition(timeoutMillis = 2_000L) { generated.contains("event-comment") }
+
+        assertTrue(generated.contains("screen-comment"))
+        assertTrue(generated.contains("event-comment"))
         job.cancelAndJoin()
     }
 

@@ -25,6 +25,7 @@ import me.naotiki.chiiugo.domain.screen.AccessibilityScreenSource
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureResult
 import me.naotiki.chiiugo.domain.screen.ScreenCaptureSource
 import me.naotiki.chiiugo.ui.component.MascotState
+import me.naotiki.chiiugo.ui.component.texts
 
 class MascotCommentOrchestrator(
     private val contextEventRepository: ContextEventRepository,
@@ -45,7 +46,10 @@ class MascotCommentOrchestrator(
         var lastEventGeneratedAt = 0L
         var lastAccessibilityImmediateGeneratedAt = 0L
 
-        suspend fun FlowCollector<String>.collectEventMode(settings: LlmSettings) {
+        suspend fun FlowCollector<String>.collectEventMode(
+            settings: LlmSettings,
+            llmEnabled: Boolean
+        ) {
             contextEventRepository.events.collect { event ->
                 val now = System.currentTimeMillis()
                 val cooldownMillis = settings.cooldownSec * 1000L
@@ -53,8 +57,12 @@ class MascotCommentOrchestrator(
                     return@collect
                 }
 
-                val snapshot = contextEventRepository.snapshotFlow.value.withEventFocus(event)
-                val comment = commentGenerator.generate(snapshot, settings).trim()
+                val comment = if (llmEnabled) {
+                    val snapshot = contextEventRepository.snapshotFlow.value.withEventFocus(event)
+                    commentGenerator.generate(snapshot, settings).trim()
+                } else {
+                    texts.randomOrNull().orEmpty()
+                }
                 if (comment.isNotBlank()) {
                     lastEventGeneratedAt = now
                     emit(comment)
@@ -108,10 +116,11 @@ class MascotCommentOrchestrator(
         }.transformLatest { state ->
             val settings = state.settings
             if (!settings.enabled) {
+                collectEventMode(settings, llmEnabled = false)
                 return@transformLatest
             }
             if (!settings.screenAnalysisEnabled) {
-                collectEventMode(settings)
+                collectEventMode(settings, llmEnabled = true)
                 return@transformLatest
             }
 
@@ -119,17 +128,27 @@ class MascotCommentOrchestrator(
                 ScreenAnalysisMode.MULTIMODAL_ONLY,
                 ScreenAnalysisMode.OCR_ONLY -> {
                     if (!state.screenCaptureAvailable) {
-                        collectEventMode(settings)
+                        collectEventMode(settings, llmEnabled = true)
                     } else {
-                        collectScreenCaptureMode(settings)
+                        merge(
+                            flow { collectEventMode(settings, llmEnabled = true) },
+                            flow { collectScreenCaptureMode(settings) }
+                        ).collect { comment ->
+                            emit(comment)
+                        }
                     }
                 }
 
                 ScreenAnalysisMode.ACCESSIBILITY_ONLY -> {
                     if (!state.accessibilityAvailable) {
-                        collectEventMode(settings)
+                        collectEventMode(settings, llmEnabled = true)
                     } else {
-                        collectAccessibilityMode(settings)
+                        merge(
+                            flow { collectEventMode(settings, llmEnabled = true) },
+                            flow { collectAccessibilityMode(settings) }
+                        ).collect { comment ->
+                            emit(comment)
+                        }
                     }
                 }
             }

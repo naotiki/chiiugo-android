@@ -18,11 +18,14 @@ class KoogMascotCommentGenerator @Inject constructor(
                 settings = settings,
                 snapshot = snapshot,
                 apiKey = llmSettingsRepository.getApiKeyOrNull()
-            ).toSingleSentence()
-                .take(40)
-                .ifBlank { texts.random() }
+            )
+                //.toSingleSentence()
+                //.take(40)
+                .ifBlank { "debug" }
+                //.ifBlank { texts.random() }
         }.getOrElse {
-            texts.random()
+            (it.message?:it.cause) as String
+            //texts.random()
         }
     }
 }

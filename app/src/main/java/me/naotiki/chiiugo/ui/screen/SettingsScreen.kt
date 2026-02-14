@@ -41,6 +41,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import me.naotiki.chiiugo.data.llm.LlmSettings
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MAX_CONFIGURABLE_TOKENS
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepositoryImpl.Companion.MIN_CONFIGURABLE_TOKENS
 import kotlin.math.roundToInt
 
 @Composable
@@ -246,7 +249,7 @@ fun SettingsScreen(
             Slider(
                 value = llmSettings.maxTokens.toFloat(),
                 onValueChange = { viewModel.updateLlmMaxTokens(it.roundToInt()) },
-                valueRange = 16f..1024f,
+                valueRange = MIN_CONFIGURABLE_TOKENS.toFloat()..MAX_CONFIGURABLE_TOKENS.toFloat(),
                 steps = 28
             )
 

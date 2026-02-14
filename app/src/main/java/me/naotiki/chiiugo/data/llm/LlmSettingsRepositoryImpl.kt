@@ -24,7 +24,10 @@ class LlmSettingsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val secureApiKeyStore: SecureApiKeyStore
 ) : LlmSettingsRepository {
-
+    companion object {
+        val MIN_CONFIGURABLE_TOKENS = 16
+        val MAX_CONFIGURABLE_TOKENS = 2048
+    }
     private object PreferenceKeys {
         val ENABLED = booleanPreferencesKey("enabled")
         val BASE_URL = stringPreferencesKey("base_url")
@@ -37,17 +40,21 @@ class LlmSettingsRepositoryImpl @Inject constructor(
 
     private val defaultSettings = LlmSettings()
 
-    override val settingsFlow: Flow<LlmSettings> = context.llmSettingsDataStore.data.map { preferences ->
-        LlmSettings(
-            enabled = preferences[PreferenceKeys.ENABLED] ?: defaultSettings.enabled,
-            baseUrl = preferences[PreferenceKeys.BASE_URL] ?: defaultSettings.baseUrl,
-            model = preferences[PreferenceKeys.MODEL] ?: defaultSettings.model,
-            cooldownSec = preferences[PreferenceKeys.COOLDOWN_SEC] ?: defaultSettings.cooldownSec,
-            maxTokens = preferences[PreferenceKeys.MAX_TOKENS] ?: defaultSettings.maxTokens,
-            temperature = preferences[PreferenceKeys.TEMPERATURE] ?: defaultSettings.temperature,
-            personaStyle = preferences[PreferenceKeys.PERSONA_STYLE] ?: defaultSettings.personaStyle
-        )
-    }
+    override val settingsFlow: Flow<LlmSettings> =
+        context.llmSettingsDataStore.data.map { preferences ->
+            LlmSettings(
+                enabled = preferences[PreferenceKeys.ENABLED] ?: defaultSettings.enabled,
+                baseUrl = preferences[PreferenceKeys.BASE_URL] ?: defaultSettings.baseUrl,
+                model = preferences[PreferenceKeys.MODEL] ?: defaultSettings.model,
+                cooldownSec = preferences[PreferenceKeys.COOLDOWN_SEC]
+                    ?: defaultSettings.cooldownSec,
+                maxTokens = preferences[PreferenceKeys.MAX_TOKENS] ?: defaultSettings.maxTokens,
+                temperature = preferences[PreferenceKeys.TEMPERATURE]
+                    ?: defaultSettings.temperature,
+                personaStyle = preferences[PreferenceKeys.PERSONA_STYLE]
+                    ?: defaultSettings.personaStyle
+            )
+        }
 
     override suspend fun updateEnabled(enabled: Boolean) {
         context.llmSettingsDataStore.edit { preferences ->
@@ -57,7 +64,8 @@ class LlmSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateBaseUrl(baseUrl: String) {
         context.llmSettingsDataStore.edit { preferences ->
-            preferences[PreferenceKeys.BASE_URL] = baseUrl.trim().ifBlank { defaultSettings.baseUrl }
+            preferences[PreferenceKeys.BASE_URL] =
+                baseUrl.trim().ifBlank { defaultSettings.baseUrl }
         }
     }
 
@@ -75,7 +83,8 @@ class LlmSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun updateMaxTokens(maxTokens: Int) {
         context.llmSettingsDataStore.edit { preferences ->
-            preferences[PreferenceKeys.MAX_TOKENS] = maxTokens.coerceIn(16, 1024)
+            preferences[PreferenceKeys.MAX_TOKENS] =
+                maxTokens.coerceIn(MIN_CONFIGURABLE_TOKENS, MAX_CONFIGURABLE_TOKENS)
         }
     }
 

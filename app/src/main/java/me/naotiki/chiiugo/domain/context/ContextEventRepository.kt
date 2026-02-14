@@ -32,7 +32,10 @@ data class MediaContextEvent(
 data class NotificationEventPayload(
     val key: String,
     val appName: String,
-    val category: String?
+    val category: String?,
+    val title: String? = null,
+    val body: String? = null,
+    val postedAtEpochMillis: Long = System.currentTimeMillis()
 )
 
 data class MediaEventPayload(
@@ -47,7 +50,10 @@ data class MediaEventPayload(
 private data class NotificationEntry(
     val key: String,
     val appName: String,
-    val category: String?
+    val category: String?,
+    val title: String?,
+    val body: String?,
+    val postedAtEpochMillis: Long
 )
 
 @Singleton
@@ -70,7 +76,10 @@ class ContextEventRepository @Inject constructor() {
             notifications[payload.key] = NotificationEntry(
                 key = payload.key,
                 appName = payload.appName,
-                category = payload.category
+                category = payload.category,
+                title = payload.title,
+                body = payload.body,
+                postedAtEpochMillis = payload.postedAtEpochMillis
             )
             publishNotificationUpdate()
         }
@@ -91,7 +100,10 @@ class ContextEventRepository @Inject constructor() {
                 notifications[payload.key] = NotificationEntry(
                     key = payload.key,
                     appName = payload.appName,
-                    category = payload.category
+                    category = payload.category,
+                    title = payload.title,
+                    body = payload.body,
+                    postedAtEpochMillis = payload.postedAtEpochMillis
                 )
             }
             publishNotificationUpdate()
@@ -146,11 +158,23 @@ class ContextEventRepository @Inject constructor() {
                 )
             }
             .sortedByDescending { it.count }
+        val recentNotifications = notifications.values
+            .sortedByDescending { it.postedAtEpochMillis }
             .take(8)
+            .map { entry ->
+                RecentNotificationSnapshot(
+                    appName = entry.appName,
+                    category = entry.category,
+                    title = entry.title,
+                    body = entry.body,
+                    postedAtEpochMillis = entry.postedAtEpochMillis
+                )
+            }
 
         _snapshotFlow.value = _snapshotFlow.value.copy(
             notificationCount = notifications.size,
             activeNotifications = summary,
+            recentNotifications = recentNotifications,
             updatedAtEpochMillis = System.currentTimeMillis()
         )
 

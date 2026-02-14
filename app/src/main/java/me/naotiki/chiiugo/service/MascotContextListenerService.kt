@@ -1,5 +1,6 @@
 package me.naotiki.chiiugo.service
 
+import android.app.Notification
 import android.content.ComponentName
 import android.content.Context
 import android.media.MediaMetadata
@@ -57,7 +58,10 @@ class MascotContextListenerService : NotificationListenerService() {
             NotificationEventPayload(
                 key = entry.key,
                 appName = resolveAppName(entry.packageName),
-                category = entry.notification?.category
+                category = entry.notification?.category,
+                title = extractNotificationTitle(entry.notification),
+                body = extractNotificationBody(entry.notification),
+                postedAtEpochMillis = entry.postTime
             )
         )
     }
@@ -73,7 +77,10 @@ class MascotContextListenerService : NotificationListenerService() {
             NotificationEventPayload(
                 key = it.key,
                 appName = resolveAppName(it.packageName),
-                category = it.notification?.category
+                category = it.notification?.category,
+                title = extractNotificationTitle(it.notification),
+                body = extractNotificationBody(it.notification),
+                postedAtEpochMillis = it.postTime
             )
         }
         contextEventRepository.replaceActiveNotifications(current)
@@ -170,6 +177,25 @@ class MascotContextListenerService : NotificationListenerService() {
         }.getOrElse {
             packageName
         }
+    }
+
+    private fun extractNotificationTitle(notification: Notification?): String? {
+        val extras = notification?.extras ?: return null
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        return title?.trim()?.takeIf { it.isNotEmpty() }?.take(120)
+    }
+
+    private fun extractNotificationBody(notification: Notification?): String? {
+        val extras = notification?.extras ?: return null
+        val bodyCandidates = listOf(
+            extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+            extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+        )
+        return bodyCandidates
+            .firstOrNull { !it.isNullOrBlank() }
+            ?.trim()
+            ?.take(240)
     }
 
     private fun inferMediaKind(packageName: String, metadata: MediaMetadata?): MediaKind {

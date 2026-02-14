@@ -2,7 +2,7 @@ package me.naotiki.chiiugo.domain.context
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -16,7 +16,9 @@ class ContextEventRepositoryTest {
             NotificationEventPayload(
                 key = "a",
                 appName = "YouTube",
-                category = "social"
+                category = "social",
+                title = "動画の通知",
+                body = "最新アップロードがあります"
             )
         )
         repository.onNotificationPosted(
@@ -40,7 +42,8 @@ class ContextEventRepositoryTest {
         assertEquals(3, snapshot.notificationCount)
         assertEquals("YouTube", snapshot.activeNotifications.first().appName)
         assertEquals(2, snapshot.activeNotifications.first().count)
-        assertFalse(snapshot.toPromptJson().contains("body", ignoreCase = true))
+        assertTrue(snapshot.toPromptJson().contains("最新アップロードがあります"))
+        assertTrue(snapshot.recentNotifications.isNotEmpty())
     }
 
     @Test

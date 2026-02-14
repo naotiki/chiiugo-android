@@ -1,5 +1,10 @@
 package me.naotiki.chiiugo.domain.context
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+@Serializable
 enum class PlaybackStatus {
     NONE,
     PLAYING,
@@ -7,18 +12,30 @@ enum class PlaybackStatus {
     STOPPED
 }
 
+@Serializable
 enum class MediaKind {
     UNKNOWN,
     MUSIC,
     VIDEO
 }
 
+@Serializable
 data class NotificationAppSummary(
     val appName: String,
     val category: String?,
     val count: Int
 )
 
+@Serializable
+data class RecentNotificationSnapshot(
+    val appName: String,
+    val category: String?,
+    val title: String? = null,
+    val body: String? = null,
+    val postedAtEpochMillis: Long
+)
+
+@Serializable
 data class MediaPlaybackSnapshot(
     val packageName: String,
     val appName: String,
@@ -28,64 +45,21 @@ data class MediaPlaybackSnapshot(
     val artist: String? = null
 )
 
+@Serializable
 data class MascotContextSnapshot(
     val notificationCount: Int = 0,
-    val activeNotifications: List<NotificationAppSummary> = emptyList(),
+    //val activeNotifications: List<NotificationAppSummary> = emptyList(),
+    val recentNotifications: List<RecentNotificationSnapshot> = emptyList(),
     val mediaPlayback: MediaPlaybackSnapshot? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis()
 ) {
     fun toPromptJson(): String {
-        val notificationItems = activeNotifications.joinToString(",") {
-            buildString {
-                append("{\"appName\":\"${it.appName.escapeJson()}\",")
-                append("\"category\":")
-                if (it.category == null) {
-                    append("null,")
-                } else {
-                    append("\"${it.category.escapeJson()}\",")
-                }
-                append("\"count\":${it.count}}")
-            }
-        }
-
-        val mediaJson = mediaPlayback?.let {
-            buildString {
-                append("{\"packageName\":\"${it.packageName.escapeJson()}\",")
-                append("\"appName\":\"${it.appName.escapeJson()}\",")
-                append("\"status\":\"${it.status.name}\",")
-                append("\"mediaKind\":\"${it.mediaKind.name}\",")
-                append("\"title\":")
-                if (it.title == null) {
-                    append("null,")
-                } else {
-                    append("\"${it.title.escapeJson()}\",")
-                }
-                append("\"artist\":")
-                if (it.artist == null) {
-                    append("null")
-                } else {
-                    append("\"${it.artist.escapeJson()}\"")
-                }
-                append("}")
-            }
-        } ?: "null"
-
-        return buildString {
-            append("{")
-            append("\"notificationCount\":$notificationCount,")
-            append("\"activeNotifications\":[")
-            append(notificationItems)
-            append("],")
-            append("\"mediaPlayback\":$mediaJson,")
-            append("\"updatedAtEpochMillis\":$updatedAtEpochMillis")
-            append("}")
-        }
+        return promptJson.encodeToString(this)
     }
 }
 
-private fun String.escapeJson(): String {
-    return this
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
+private val promptJson = Json {
+    encodeDefaults = true
+    explicitNulls = false
+    prettyPrint = false
 }

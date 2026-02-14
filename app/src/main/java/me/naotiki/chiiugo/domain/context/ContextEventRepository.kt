@@ -48,7 +48,6 @@ data class MediaEventPayload(
 )
 
 private data class NotificationEntry(
-    val key: String,
     val appName: String,
     val category: String?,
     val title: String?,
@@ -74,7 +73,6 @@ class ContextEventRepository @Inject constructor() {
     fun onNotificationPosted(payload: NotificationEventPayload) {
         scope.launch {
             notifications[payload.key] = NotificationEntry(
-                key = payload.key,
                 appName = payload.appName,
                 category = payload.category,
                 title = payload.title,
@@ -98,7 +96,6 @@ class ContextEventRepository @Inject constructor() {
             notifications.clear()
             payloads.forEach { payload ->
                 notifications[payload.key] = NotificationEntry(
-                    key = payload.key,
                     appName = payload.appName,
                     category = payload.category,
                     title = payload.title,
@@ -148,16 +145,6 @@ class ContextEventRepository @Inject constructor() {
     }
 
     private suspend fun publishNotificationUpdate() {
-        val summary = notifications.values
-            .groupBy { it.appName to it.category }
-            .map { (key, grouped) ->
-                NotificationAppSummary(
-                    appName = key.first,
-                    category = key.second,
-                    count = grouped.size
-                )
-            }
-            .sortedByDescending { it.count }
         val recentNotifications = notifications.values
             .sortedByDescending { it.postedAtEpochMillis }
             .take(8)
@@ -173,7 +160,6 @@ class ContextEventRepository @Inject constructor() {
 
         _snapshotFlow.value = _snapshotFlow.value.copy(
             notificationCount = notifications.size,
-            activeNotifications = summary,
             recentNotifications = recentNotifications,
             updatedAtEpochMillis = System.currentTimeMillis()
         )

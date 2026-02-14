@@ -12,6 +12,7 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.llm.OllamaModels
 import ai.koog.prompt.params.LLMParams
+import android.util.Log
 import kotlinx.coroutines.withTimeout
 import me.naotiki.chiiugo.data.llm.LlmSettings
 import me.naotiki.chiiugo.domain.context.MascotContextSnapshot
@@ -39,24 +40,24 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
                 temperature = settings.temperature.toDouble(),
                 maxTokens = settings.maxTokens,
 
-            )
+                )
         ) {
             system("/no_think")
-           /* system(
-                """
-                # 制約条件
-                - 名詞の前には必ず「ビブリオ」を出力
-                - 形容詞の前には必ず「ブリブリ」を出力
-                - 語尾には必ず「ビブリブオ」を出力
-                - 動詞の前には必ず「ボブリビア」を出力
-                - 助詞の前には「モリモリ」を出力
-                - 助動詞の前には「ブリキ」を出力
-                - 助詞は英語に変換
-                - アルファベットは筆記体を使用
-                  - MATHEMATICAL SCRIPT 𝒜など
-                - 全ての単語の前に2~3個の文脈とは未関係な絵文字を出力
-            """.trimIndent()
-            )*/
+            /* system(
+                 """
+                 # 制約条件
+                 - 名詞の前には必ず「ビブリオ」を出力
+                 - 形容詞の前には必ず「ブリブリ」を出力
+                 - 語尾には必ず「ビブリブオ」を出力
+                 - 動詞の前には必ず「ボブリビア」を出力
+                 - 助詞の前には「モリモリ」を出力
+                 - 助動詞の前には「ブリキ」を出力
+                 - 助詞は英語に変換
+                 - アルファベットは筆記体を使用
+                   - MATHEMATICAL SCRIPT 𝒜など
+                 - 全ての単語の前に2~3個の文脈とは未関係な絵文字を出力
+             """.trimIndent()
+             )*/
 
 
             system(
@@ -75,6 +76,7 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
                 今の状況に対する文を返してください。
                 """.trimIndent()
             )
+            Log.d("agent_context", snapshot.toPromptJson())
         }
         val model =
             OpenAIModels.Chat.GPT4o.copy(id = settings.model.ifBlank { OpenAIModels.Chat.GPT4o.id })
@@ -85,16 +87,16 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
             ).execute(prompt, model, emptyList())
         }
 
-     /*   AIAgent(
-            SingleLLMPromptExecutor(
-                OpenAILLMClient(
-                    apiKey = apiKey?.trim().takeUnless { it.isNullOrBlank() } ?: "lm-studio",
-                    settings = OpenAIClientSettings(baseUrl = normalizeBaseUrl(settings.baseUrl))),
+        /*   AIAgent(
+               SingleLLMPromptExecutor(
+                   OpenAILLMClient(
+                       apiKey = apiKey?.trim().takeUnless { it.isNullOrBlank() } ?: "lm-studio",
+                       settings = OpenAIClientSettings(baseUrl = normalizeBaseUrl(settings.baseUrl))),
 
-                ),
-            llmModel = model
-        )
-*/
+                   ),
+               llmModel = model
+           )
+   */
         return responseMessages.joinToString(" ") { response ->
             response.content
         }.trim()

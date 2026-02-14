@@ -148,6 +148,8 @@ private fun ai.koog.prompt.dsl.PromptBuilder.buildCommonSystemPrompts() {
         - 攻撃/差別/脅し/個人情報推定は禁止
         - カギ括弧などは用いない
         - 敬語は一切用いず，友達のように話しかけて
+        - 画面が読み取れなかったなどのエラーについてはいっさい言及しない
+            - 話すことがない場合は挨拶のみ
         """.trimIndent()
     )
 }

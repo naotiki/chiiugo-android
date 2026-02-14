@@ -90,7 +90,6 @@ enum class Behaviours(val behaviourFunc: BehaviourFunc) {
 val defaultBehaviour: BehaviourFunc = {
     randomWalk(configProvider().moveSpeedMs)
     delay(Random.nextLong(0, 2000))
-    say(texts.random(), 5000)
     when ((0 until 30).random()) {
         0 -> {
             changeBehaviour(Behaviours.FallDown)

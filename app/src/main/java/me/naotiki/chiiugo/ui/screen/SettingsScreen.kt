@@ -1,5 +1,9 @@
 package me.naotiki.chiiugo.ui.screen
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,27 +13,63 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
+import me.naotiki.chiiugo.service.MascotContextListenerService
 
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val config by viewModel.configState.collectAsStateWithLifecycle()
+    val llmSettings by viewModel.llmSettingsState.collectAsStateWithLifecycle()
+    val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var apiKeyInput by rememberSaveable { mutableStateOf("") }
+    var notificationPermissionGranted by remember {
+        mutableStateOf(isNotificationListenerEnabled(context))
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationPermissionGranted = isNotificationListenerEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -44,7 +84,6 @@ fun SettingsScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Image Size Setting
         SettingsCard(title = "画像サイズ") {
             Text(
                 text = "${config.imageSize.roundToInt()} dp",
@@ -58,7 +97,6 @@ fun SettingsScreen(
             )
         }
 
-        // Move Speed Setting
         SettingsCard(title = "移動速度") {
             Text(
                 text = "${config.moveSpeedMs} ms",
@@ -72,7 +110,6 @@ fun SettingsScreen(
             )
         }
 
-        // Transparency Setting
         SettingsCard(title = "透明度") {
             Text(
                 text = "${(config.transparency * 100).roundToInt()}%",
@@ -84,60 +121,7 @@ fun SettingsScreen(
                 valueRange = 0.1f..1f
             )
         }
-        /*
-                // Area Offset Setting
-                SettingsCard(title = "移動エリアオフセット") {
-                    Text(
-                        text = "X: ${(config.areaOffset.first * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaOffset.first,
-                        onValueChange = {
-                            viewModel.updateAreaOffset(it to config.areaOffset.second)
-                        },
-                        valueRange = 0f..0.5f
-                    )
-                    Text(
-                        text = "Y: ${(config.areaOffset.second * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaOffset.second,
-                        onValueChange = {
-                            viewModel.updateAreaOffset(config.areaOffset.first to it)
-                        },
-                        valueRange = 0f..0.5f
-                    )
-                }
 
-                // Area Size Setting
-                SettingsCard(title = "移動エリアサイズ") {
-                    Text(
-                        text = "幅: ${(config.areaSize.first * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaSize.first,
-                        onValueChange = {
-                            viewModel.updateAreaSize(it to config.areaSize.second)
-                        },
-                        valueRange = 0.1f..1f
-                    )
-                    Text(
-                        text = "高さ: ${(config.areaSize.second * 100).roundToInt()}%",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Slider(
-                        value = config.areaSize.second,
-                        onValueChange = {
-                            viewModel.updateAreaSize(config.areaSize.first to it)
-                        },
-                        valueRange = 0.1f..1f
-                    )
-                }*/
-
-        // Blocking Touch Setting
         SettingsCard(title = "タッチブロック") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -152,6 +136,128 @@ fun SettingsScreen(
                     checked = config.blockingTouch,
                     onCheckedChange = { viewModel.updateBlockingTouch(it) }
                 )
+            }
+        }
+
+        SettingsCard(title = "LLM発話設定") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "LLM生成",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = llmSettings.enabled,
+                    onCheckedChange = { viewModel.updateLlmEnabled(it) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.baseUrl,
+                onValueChange = { viewModel.updateLlmBaseUrl(it) },
+                label = { Text("LMStudio Base URL") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.model,
+                onValueChange = { viewModel.updateLlmModel(it) },
+                label = { Text("Model ID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("クールダウン: ${llmSettings.cooldownSec} 秒")
+            Slider(
+                value = llmSettings.cooldownSec.toFloat(),
+                onValueChange = { viewModel.updateLlmCooldownSec(it.roundToInt()) },
+                valueRange = 5f..120f,
+                steps = 22
+            )
+
+            Text("Max Tokens: ${llmSettings.maxTokens}")
+            Slider(
+                value = llmSettings.maxTokens.toFloat(),
+                onValueChange = { viewModel.updateLlmMaxTokens(it.roundToInt()) },
+                valueRange = 16f..256f,
+                steps = 14
+            )
+
+            Text("Temperature: ${"%.2f".format(llmSettings.temperature)}")
+            Slider(
+                value = llmSettings.temperature,
+                onValueChange = { viewModel.updateLlmTemperature(it) },
+                valueRange = 0f..2f
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = llmSettings.personaStyle,
+                onValueChange = { viewModel.updatePersonaStyle(it) },
+                label = { Text("口調メモ") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (notificationPermissionGranted) {
+                        "通知アクセス: 許可済み"
+                    } else {
+                        "通知アクセス: 未許可"
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    )
+                }) {
+                    Text("許可画面を開く")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = apiKeyInput,
+                onValueChange = { apiKeyInput = it },
+                label = { Text("API Key (任意)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = PasswordVisualTransformation()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (hasApiKey) "APIキー: 保存済み" else "APIキー: 未保存",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = {
+                    viewModel.saveApiKey(apiKeyInput)
+                    apiKeyInput = ""
+                }) {
+                    Text("APIキー保存")
+                }
             }
         }
 
@@ -182,5 +288,17 @@ private fun SettingsCard(
             )
             content()
         }
+    }
+}
+
+private fun isNotificationListenerEnabled(context: Context): Boolean {
+    val enabledListeners = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_NOTIFICATION_LISTENERS
+    ) ?: return false
+
+    val targetComponent = ComponentName(context, MascotContextListenerService::class.java)
+    return enabledListeners.split(":").any { enabledComponent ->
+        enabledComponent.equals(targetComponent.flattenToString(), ignoreCase = true)
     }
 }

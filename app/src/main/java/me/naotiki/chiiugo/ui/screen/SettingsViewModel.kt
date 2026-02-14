@@ -3,16 +3,21 @@ package me.naotiki.chiiugo.ui.screen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import me.naotiki.chiiugo.data.llm.LlmSettingsRepository
 import me.naotiki.chiiugo.data.repository.ConfigRepository
 import me.naotiki.chiiugo.ui.component.Config
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val configRepository: ConfigRepository
+    private val configRepository: ConfigRepository,
+    private val llmSettingsRepository: LlmSettingsRepository
 ) : ViewModel() {
 
     val configState = configRepository.configFlow.stateIn(
@@ -20,6 +25,20 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = Config()
     )
+    val llmSettingsState = llmSettingsRepository.settingsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = me.naotiki.chiiugo.data.llm.LlmSettings()
+    )
+
+    private val _hasApiKey = MutableStateFlow(false)
+    val hasApiKey: StateFlow<Boolean> = _hasApiKey.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _hasApiKey.value = llmSettingsRepository.hasApiKey()
+        }
+    }
 
     fun updateImageSize(size: Float) {
         viewModelScope.launch {
@@ -56,5 +75,53 @@ class SettingsViewModel @Inject constructor(
             configRepository.updateBlockingTouch(blocking)
         }
     }
-}
 
+    fun updateLlmEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateEnabled(enabled)
+        }
+    }
+
+    fun updateLlmBaseUrl(baseUrl: String) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateBaseUrl(baseUrl)
+        }
+    }
+
+    fun updateLlmModel(model: String) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateModel(model)
+        }
+    }
+
+    fun updateLlmCooldownSec(cooldownSec: Int) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateCooldownSec(cooldownSec)
+        }
+    }
+
+    fun updateLlmMaxTokens(maxTokens: Int) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateMaxTokens(maxTokens)
+        }
+    }
+
+    fun updateLlmTemperature(temperature: Float) {
+        viewModelScope.launch {
+            llmSettingsRepository.updateTemperature(temperature)
+        }
+    }
+
+    fun updatePersonaStyle(personaStyle: String) {
+        viewModelScope.launch {
+            llmSettingsRepository.updatePersonaStyle(personaStyle)
+        }
+    }
+
+    fun saveApiKey(apiKey: String) {
+        viewModelScope.launch {
+            llmSettingsRepository.saveApiKey(apiKey)
+            _hasApiKey.value = llmSettingsRepository.hasApiKey()
+        }
+    }
+}

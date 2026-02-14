@@ -20,6 +20,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dagger.hilt.android.AndroidEntryPoint
+import me.naotiki.chiiugo.domain.comment.MascotCommentOrchestrator
 import me.naotiki.chiiugo.model.rememberAreaSize
 import me.naotiki.chiiugo.ui.component.ConfigManager
 import me.naotiki.chiiugo.ui.component.Mascot
@@ -31,6 +32,9 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
 
     @Inject
     lateinit var configManager: ConfigManager
+
+    @Inject
+    lateinit var mascotCommentOrchestrator: MascotCommentOrchestrator
 
     companion object {
         private const val START_OVERLAY = "START_OVERLAY"
@@ -85,6 +89,9 @@ class MascotOverlayService() : LifecycleService(), SavedStateRegistryOwner {
                             alpha = config.transparency
                         }
                     )
+                }
+                LaunchedEffect(mascotState) {
+                    mascotCommentOrchestrator.run(mascotState)
                 }
 
                 Mascot(mascotState, configData = config)

@@ -37,7 +37,6 @@ class KoogPromptClientImpl @Inject constructor() : KoogPromptClient {
                 - 攻撃/差別/脅し/個人情報推定は禁止
                 - カギ括弧などは用いない．
                 - フレンドリー
-                - 
                 """.trimIndent()
             )
             user(
